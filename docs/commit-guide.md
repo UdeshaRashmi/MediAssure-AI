@@ -21,11 +21,11 @@
 
 ## Current Commit
 
-Use this commit message for the current app scaffold:
+Use this commit message for the current database model scaffold:
 
 ```bash
-git add backend frontend docker-compose.yml .github docs/commit-guide.md
-git commit -m "Add initial application scaffold"
+git add backend/app/core backend/app/db backend/app/models backend/requirements.txt docs/data-model.md docs/commit-guide.md
+git commit -m "Add core database models"
 ```
 
 ## Good Commit Message Examples
@@ -49,4 +49,3 @@ git commit -m "Add stock rebalancing optimizer"
 - real patient data
 - private pharmacy inventory datasets
 - generated model artifacts larger than the repository policy allows
-

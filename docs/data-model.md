@@ -109,3 +109,29 @@ PostGIS supports:
 - Geospatial ranking features
 - Travel-time-aware recommendation features
 
+## Backend Implementation
+
+The FastAPI backend now includes SQLAlchemy model classes for the core tables:
+
+- `User`
+- `Pharmacy`
+- `Medicine`
+- `Inventory`
+- `SalesHistory`
+- `Reservation`
+- `EmergencyRequest`
+- `StockTransfer`
+- `Prediction`
+
+Pharmacy and emergency request locations are represented with PostGIS `POINT`
+geometry using SRID `4326`, which is suitable for GPS latitude/longitude data.
+
+## Next Database Step
+
+Add Alembic migrations so the schema can be created and versioned safely:
+
+```bash
+alembic init migrations
+alembic revision --autogenerate -m "Create core pharmacy schema"
+alembic upgrade head
+```

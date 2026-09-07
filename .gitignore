@@ -39,7 +39,7 @@ Thumbs.db
 # Data and ML artifacts
 data/raw/
 data/private/
-models/
+/models/
 mlruns/
 *.pkl
 *.joblib
@@ -47,4 +47,3 @@ mlruns/
 # Logs
 logs/
 *.log
-
