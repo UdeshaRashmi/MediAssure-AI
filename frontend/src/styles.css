@@ -18,3 +18,12 @@ input {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #c9d8cc;
+  outline-offset: 2px;
+}
