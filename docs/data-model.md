@@ -128,10 +128,8 @@ geometry using SRID `4326`, which is suitable for GPS latitude/longitude data.
 
 ## Next Database Step
 
-Add Alembic migrations so the schema can be created and versioned safely:
+Run the initial Alembic migration so the schema can be created and versioned safely:
 
 ```bash
-alembic init migrations
-alembic revision --autogenerate -m "Create core pharmacy schema"
 alembic upgrade head
 ```

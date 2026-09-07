@@ -21,11 +21,11 @@
 
 ## Current Commit
 
-Use this commit message for the current database model scaffold:
+Use this commit message for the current database migration scaffold:
 
 ```bash
-git add backend/app/core backend/app/db backend/app/models backend/requirements.txt docs/data-model.md docs/commit-guide.md
-git commit -m "Add core database models"
+git add backend/alembic.ini backend/migrations backend/requirements.txt docs/data-model.md docs/commit-guide.md
+git commit -m "Add initial database migration"
 ```
 
 ## Good Commit Message Examples

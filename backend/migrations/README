@@ -1,0 +1,8 @@
+Alembic migration environment for MediAssure AI.
+
+Common commands:
+
+alembic revision --autogenerate -m "Describe schema change"
+alembic upgrade head
+alembic downgrade -1
+
