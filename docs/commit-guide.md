@@ -19,13 +19,13 @@
 15. AWS deployment configuration
 16. MLOps tracking with MLflow
 
-## Current First Commit
+## Current Commit
 
-Use this commit message for the current documentation scaffold:
+Use this commit message for the current app scaffold:
 
 ```bash
-git add README.md docs .gitignore
-git commit -m "Add initial project documentation"
+git add backend frontend docker-compose.yml .github docs/commit-guide.md
+git commit -m "Add initial application scaffold"
 ```
 
 ## Good Commit Message Examples
