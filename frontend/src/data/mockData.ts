@@ -1,4 +1,13 @@
-import type { InventoryItem, OperationalAlert, PharmacyMatch, Reservation, TransferSuggestion } from "../types";
+import type {
+  DemandForecast,
+  InventoryItem,
+  NetworkPharmacy,
+  OperationalAlert,
+  PharmacyMatch,
+  Reservation,
+  TransferSuggestion,
+  VerifiedAlternative,
+} from "../types";
 
 export const inventory: InventoryItem[] = [
   {
@@ -105,4 +114,102 @@ export const alerts: OperationalAlert[] = [
   { title: "Salbutamol stock-out risk", detail: "Predicted shortage within 24h if 8 units are not transferred.", tone: "danger" },
   { title: "Reservation waiting", detail: "One emergency reservation needs pharmacist confirmation.", tone: "amber" },
   { title: "Inventory sync healthy", detail: "Last pharmacy sync completed 2 minutes ago.", tone: "good" },
+];
+
+export const forecasts: DemandForecast[] = [
+  {
+    medicine: "Salbutamol Inhaler",
+    next24h: 14,
+    next72h: 41,
+    stockoutRisk: 86,
+    trend: "Rising",
+    driver: "Evening respiratory demand and nearby clinic referrals",
+  },
+  {
+    medicine: "Insulin Rapid Acting",
+    next24h: 7,
+    next72h: 19,
+    stockoutRisk: 68,
+    trend: "Rising",
+    driver: "Low buffer after emergency reservations",
+  },
+  {
+    medicine: "Amoxicillin 500 mg",
+    next24h: 18,
+    next72h: 34,
+    stockoutRisk: 54,
+    trend: "Stable",
+    driver: "Seasonal antibiotic demand near reorder level",
+  },
+  {
+    medicine: "Paracetamol 500 mg",
+    next24h: 22,
+    next72h: 49,
+    stockoutRisk: 21,
+    trend: "Falling",
+    driver: "Healthy stock coverage across partner pharmacies",
+  },
+];
+
+export const networkPharmacies: NetworkPharmacy[] = [
+  {
+    name: "City Care Pharmacy",
+    area: "Colombo 07",
+    status: "Online",
+    openUntil: "10:30 PM",
+    stockHealth: 78,
+    urgentGaps: 2,
+    lastSync: "2 min ago",
+  },
+  {
+    name: "WellCare Pharmacy",
+    area: "Borella",
+    status: "Online",
+    openUntil: "11:00 PM",
+    stockHealth: 84,
+    urgentGaps: 1,
+    lastSync: "4 min ago",
+  },
+  {
+    name: "Union Med House",
+    area: "Narahenpita",
+    status: "Delayed",
+    openUntil: "9:00 PM",
+    stockHealth: 62,
+    urgentGaps: 3,
+    lastSync: "31 min ago",
+  },
+  {
+    name: "Central Meds",
+    area: "Town Hall",
+    status: "Online",
+    openUntil: "12:00 AM",
+    stockHealth: 91,
+    urgentGaps: 0,
+    lastSync: "7 min ago",
+  },
+];
+
+export const verifiedAlternatives: VerifiedAlternative[] = [
+  {
+    requested: "Paracetamol 500 mg",
+    alternative: "Acetaminophen 500 mg",
+    type: "Generic equivalent",
+    verifier: "Pharmacist verified",
+    status: "Display allowed",
+  },
+  {
+    requested: "Salbutamol Inhaler",
+    alternative: "Ventolin inhaler brand match",
+    type: "Generic equivalent",
+    verifier: "Pharmacist verified",
+    status: "Display allowed",
+  },
+  {
+    requested: "Amoxicillin 500 mg",
+    alternative: "Amoxicillin-clavulanate",
+    type: "Same class review",
+    verifier: "Doctor review required",
+    status: "Pharmacist review",
+  },
 ];

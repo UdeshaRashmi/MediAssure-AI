@@ -3,10 +3,13 @@ import { Sidebar, SearchBox, TopBar } from "./components/Layout";
 import { inventory, pharmacyMatches } from "./data/mockData";
 import { AlertsPage } from "./pages/AlertsPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { ForecastPage } from "./pages/ForecastPage";
 import { FinderPage } from "./pages/FinderPage";
 import { InventoryPage } from "./pages/InventoryPage";
+import { NetworkPage } from "./pages/NetworkPage";
 import { RebalancingPage } from "./pages/RebalancingPage";
 import { ReservationsPage } from "./pages/ReservationsPage";
+import { RequestPage } from "./pages/RequestPage";
 import type { Page } from "./types";
 
 export function App() {
@@ -65,10 +68,13 @@ export function App() {
               onReserve={setReservedPharmacy}
             />
           )}
+          {activePage === "request" && <RequestPage onNavigate={handleNavigate} />}
           {activePage === "dashboard" && <DashboardPage items={filteredInventory} />}
           {activePage === "inventory" && <InventoryPage items={filteredInventory} />}
+          {activePage === "forecast" && <ForecastPage />}
           {activePage === "reservations" && <ReservationsPage />}
           {activePage === "rebalancing" && <RebalancingPage />}
+          {activePage === "network" && <NetworkPage />}
           {activePage === "alerts" && <AlertsPage />}
         </section>
       </div>
@@ -79,10 +85,13 @@ export function App() {
 function pageTitle(page: Page) {
   return {
     finder: "Medicine Finder",
+    request: "Emergency Request",
     dashboard: "Pharmacist Dashboard",
     inventory: "Inventory Management",
+    forecast: "Demand Forecasting",
     reservations: "Emergency Reservations",
     rebalancing: "Stock Rebalancing",
+    network: "Pharmacy Network",
     alerts: "Alerts and Sync Status",
   }[page];
 }

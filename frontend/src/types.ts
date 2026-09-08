@@ -1,4 +1,13 @@
-export type Page = "finder" | "dashboard" | "inventory" | "reservations" | "rebalancing" | "alerts";
+export type Page =
+  | "finder"
+  | "request"
+  | "dashboard"
+  | "inventory"
+  | "forecast"
+  | "reservations"
+  | "rebalancing"
+  | "network"
+  | "alerts";
 export type Risk = "Low" | "Medium" | "High";
 export type StockStatus = "Healthy" | "Watch" | "Low";
 export type BadgeTone = "teal" | "danger" | "amber";
@@ -51,4 +60,31 @@ export type OperationalAlert = {
   title: string;
   detail: string;
   tone: "danger" | "amber" | "good";
+};
+
+export type DemandForecast = {
+  medicine: string;
+  next24h: number;
+  next72h: number;
+  stockoutRisk: number;
+  trend: "Rising" | "Stable" | "Falling";
+  driver: string;
+};
+
+export type NetworkPharmacy = {
+  name: string;
+  area: string;
+  status: "Online" | "Delayed" | "Offline";
+  openUntil: string;
+  stockHealth: number;
+  urgentGaps: number;
+  lastSync: string;
+};
+
+export type VerifiedAlternative = {
+  requested: string;
+  alternative: string;
+  type: "Generic equivalent" | "Same class review" | "Strength check";
+  verifier: string;
+  status: "Display allowed" | "Pharmacist review";
 };

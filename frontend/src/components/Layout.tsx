@@ -5,24 +5,41 @@ import {
   Boxes,
   ChevronRight,
   ClipboardCheck,
+  Hospital,
   LayoutDashboard,
   Menu,
+  Radar,
   Search,
   ShieldCheck,
   Sparkles,
+  Siren,
+  TrendingUp,
   X,
 } from "lucide-react";
 import type { Page } from "../types";
 import logo1 from "../logo1-transparent-tight.png";
 import { IconButton } from "./ui";
 
-const navItems: { id: Page; label: string; icon: ReactNode }[] = [
-  { id: "finder", label: "Find Medicine", icon: <Search size={18} /> },
-  { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-  { id: "inventory", label: "Inventory", icon: <Boxes size={18} /> },
-  { id: "reservations", label: "Reservations", icon: <ClipboardCheck size={18} /> },
-  { id: "rebalancing", label: "Rebalancing", icon: <ArrowRightLeft size={18} /> },
-  { id: "alerts", label: "Alerts", icon: <Bell size={18} /> },
+const navGroups: { title: string; items: { id: Page; label: string; icon: ReactNode }[] }[] = [
+  {
+    title: "Emergency access",
+    items: [
+      { id: "finder", label: "Find Medicine", icon: <Search size={18} /> },
+      { id: "request", label: "Request Flow", icon: <Siren size={18} /> },
+      { id: "reservations", label: "Reservations", icon: <ClipboardCheck size={18} /> },
+    ],
+  },
+  {
+    title: "Pharmacy operations",
+    items: [
+      { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+      { id: "inventory", label: "Inventory", icon: <Boxes size={18} /> },
+      { id: "forecast", label: "Forecasts", icon: <TrendingUp size={18} /> },
+      { id: "rebalancing", label: "Rebalancing", icon: <ArrowRightLeft size={18} /> },
+      { id: "network", label: "Network", icon: <Hospital size={18} /> },
+      { id: "alerts", label: "Alerts", icon: <Bell size={18} /> },
+    ],
+  },
 ];
 
 export function TopBar({ menuOpen, onMenuToggle }: { menuOpen: boolean; onMenuToggle: () => void }) {
@@ -40,12 +57,12 @@ export function TopBar({ menuOpen, onMenuToggle }: { menuOpen: boolean; onMenuTo
           <img src={logo1} alt="MediAssure" className="h-16 w-16 shrink-0 object-contain p-1 sm:h-32 sm:w-32 sm:p-2" />
           <div className="min-w-0">
             <h2 className="truncate text-base font-bold text-[#092C46] sm:text-2xl">Predictive Pharmacy Console</h2>
-            <p className="hidden text-sm text-[#557084] md:block">Inventory, reservations, and rescue matching</p>
+            <p className="hidden text-sm text-[#557084] md:block">Emergency matching, forecasting, and pharmacy coordination</p>
           </div>
         </div>
         <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          <IconButton label="AI insights">
-            <Sparkles size={18} />
+          <IconButton label="Forecast radar">
+            <Radar size={18} />
           </IconButton>
           <IconButton label="Notifications">
             <Bell size={18} />
@@ -77,22 +94,34 @@ export function Sidebar({
         <p className="mt-1 text-sm text-[#CFEAEB]">Colombo 07 - Open now</p>
       </div>
       <nav className="grid gap-1">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            className={`flex h-11 items-center justify-between rounded-md px-3 text-sm font-semibold transition ${
-              activePage === item.id ? "bg-[#0D8F93] text-white" : "text-[#31556A] hover:bg-[#E7F7F6]"
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              {item.icon}
-              {item.label}
-            </span>
-            <ChevronRight size={16} />
-          </button>
+        {navGroups.map((group) => (
+          <div key={group.title} className="grid gap-1">
+            <p className="px-3 pb-1 pt-3 text-xs font-bold uppercase text-[#7A93A3]">{group.title}</p>
+            {group.items.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => onNavigate(item.id)}
+                className={`flex h-11 items-center justify-between rounded-md px-3 text-sm font-semibold transition ${
+                  activePage === item.id ? "bg-[#0D8F93] text-white" : "text-[#31556A] hover:bg-[#E7F7F6]"
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  {item.icon}
+                  {item.label}
+                </span>
+                <ChevronRight size={16} />
+              </button>
+            ))}
+          </div>
         ))}
       </nav>
+      <div className="mt-4 rounded-md border border-[#D8E8E8] bg-[#F8FCFC] p-3">
+        <div className="flex items-center gap-2 text-sm font-bold text-[#092C46]">
+          <Sparkles size={16} className="text-[#0D8F93]" />
+          AI stock guard
+        </div>
+        <p className="mt-2 text-xs leading-5 text-[#557084]">Watching 4 critical medicines across 12 partner locations.</p>
+      </div>
     </aside>
   );
 }
