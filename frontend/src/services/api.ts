@@ -85,6 +85,36 @@ export async function loginWithApi(email: string, password: string, role: Sessio
   return payload.user;
 }
 
+export async function signupWithApi({
+  email,
+  name,
+  password,
+  phone,
+  role,
+}: {
+  email: string;
+  name: string;
+  password: string;
+  phone?: string;
+  role: SessionUser["role"];
+}): Promise<SessionUser> {
+  const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+    body: JSON.stringify({ email, name, password, phone, role }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+    signal: AbortSignal.timeout(3500),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Signup failed: ${response.status}`);
+  }
+
+  const payload = (await response.json()) as LoginResponse;
+  window.localStorage.setItem("mediassure-token", payload.access_token);
+  window.localStorage.setItem("mediassure-token-expires-at", payload.expires_at);
+  return payload.user;
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, { signal: AbortSignal.timeout(3500) });
 

@@ -7,7 +7,8 @@ export type Page =
   | "reservations"
   | "rebalancing"
   | "network"
-  | "alerts";
+  | "alerts"
+  | "settings";
 export type Risk = "Low" | "Medium" | "High";
 export type StockStatus = "Healthy" | "Watch" | "Low";
 export type BadgeTone = "teal" | "danger" | "amber";
@@ -93,4 +94,12 @@ export type SessionUser = {
   name: string;
   email: string;
   role: "Patient" | "Pharmacist" | "Hospital Staff" | "Admin";
+};
+
+export type AuditEvent = {
+  actor: string;
+  action: string;
+  target: string;
+  time: string;
+  tone: "teal" | "amber" | "danger";
 };

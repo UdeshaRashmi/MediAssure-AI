@@ -1,6 +1,6 @@
 import { Cloud, MapPin, RadioTower, RotateCw, WifiOff } from "lucide-react";
 import { networkPharmacies } from "../data/mockData";
-import { Metric, Panel, StatusBadge } from "../components/ui";
+import { Metric, Panel, ProgressBar, StatusBadge } from "../components/ui";
 
 export function NetworkPage() {
   const online = networkPharmacies.filter((pharmacy) => pharmacy.status === "Online").length;
@@ -51,8 +51,8 @@ export function NetworkPage() {
                     <p className="text-xs font-bold uppercase text-[#557084]">Stock health</p>
                     <p className="text-sm font-bold text-[#092C46]">{pharmacy.stockHealth}%</p>
                   </div>
-                  <div className="mt-2 h-2 rounded-full bg-[#D8E8E8]">
-                    <div className="h-2 rounded-full bg-[#0D8F93]" style={{ width: `${pharmacy.stockHealth}%` }} />
+                  <div className="mt-2">
+                    <ProgressBar value={pharmacy.stockHealth} dangerAt={95} />
                   </div>
                 </div>
               </article>

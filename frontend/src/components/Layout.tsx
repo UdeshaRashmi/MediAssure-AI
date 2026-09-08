@@ -1,48 +1,20 @@
 import type { ReactNode } from "react";
 import {
-  ArrowRightLeft,
   Bell,
-  Boxes,
   ChevronRight,
-  ClipboardCheck,
-  Hospital,
-  LayoutDashboard,
   LogOut,
   Menu,
   Radar,
   Search,
   ShieldCheck,
   Sparkles,
-  Siren,
-  TrendingUp,
   X,
 } from "lucide-react";
+import { getNavGroupsForRole } from "../roleAccess";
 import type { ApiStatus } from "../services/api";
 import type { Page, SessionUser } from "../types";
 import logo1 from "../logo1-transparent-tight.png";
 import { IconButton } from "./ui";
-
-const navGroups: { title: string; items: { id: Page; label: string; icon: ReactNode }[] }[] = [
-  {
-    title: "Emergency access",
-    items: [
-      { id: "finder", label: "Find Medicine", icon: <Search size={18} /> },
-      { id: "request", label: "Request Flow", icon: <Siren size={18} /> },
-      { id: "reservations", label: "Reservations", icon: <ClipboardCheck size={18} /> },
-    ],
-  },
-  {
-    title: "Pharmacy operations",
-    items: [
-      { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-      { id: "inventory", label: "Inventory", icon: <Boxes size={18} /> },
-      { id: "forecast", label: "Forecasts", icon: <TrendingUp size={18} /> },
-      { id: "rebalancing", label: "Rebalancing", icon: <ArrowRightLeft size={18} /> },
-      { id: "network", label: "Network", icon: <Hospital size={18} /> },
-      { id: "alerts", label: "Alerts", icon: <Bell size={18} /> },
-    ],
-  },
-];
 
 export function TopBar({
   apiStatus,
@@ -68,7 +40,7 @@ export function TopBar({
           >
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <img src={logo1} alt="MediAssure" className="h-16 w-16 shrink-0 object-contain p-1 sm:h-32 sm:w-32 sm:p-2" />
+          <img src={logo1} alt="MediAssure" className="h-12 w-12 shrink-0 object-contain p-1 sm:h-14 sm:w-14" />
           <div className="min-w-0">
             <h2 className="truncate text-base font-bold text-[#092C46] sm:text-2xl">Predictive Pharmacy Console</h2>
             <p className="hidden text-sm text-[#557084] md:block">Emergency matching, forecasting, and pharmacy coordination</p>
@@ -106,19 +78,28 @@ export function TopBar({
 
 export function Sidebar({
   activePage,
+  apiStatus,
   menuOpen,
+  user,
   onNavigate,
 }: {
   activePage: Page;
+  apiStatus: ApiStatus;
   menuOpen: boolean;
+  user: SessionUser;
   onNavigate: (page: Page) => void;
 }) {
+  const navGroups = getNavGroupsForRole(user.role);
+
   return (
     <aside className={`${menuOpen ? "block" : "hidden"} rounded-lg border border-[#BFD9DB] bg-white p-3 shadow-sm lg:block`}>
       <div className="mb-3 rounded-lg bg-[#092C46] p-4 text-white">
-        <p className="text-xs font-semibold uppercase text-[#7DE3E0]">Pharmacist Portal</p>
-        <p className="mt-2 text-lg font-semibold">City Care Pharmacy</p>
-        <p className="mt-1 text-sm text-[#CFEAEB]">Colombo 07 - Open now</p>
+        <p className="text-xs font-semibold uppercase text-[#7DE3E0]">{user.role} Portal</p>
+        <p className="mt-2 text-lg font-semibold">{user.name}</p>
+        <p className="mt-1 truncate text-sm text-[#CFEAEB]">{user.email}</p>
+        <div className="mt-3 inline-flex rounded-md bg-white/10 px-2 py-1 text-xs font-bold text-[#CFEAEB]">
+          API {apiStatus === "online" ? "online" : apiStatus === "checking" ? "checking" : "mock mode"}
+        </div>
       </div>
       <nav className="grid gap-1">
         {navGroups.map((group) => (

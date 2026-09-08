@@ -1,4 +1,5 @@
 import type {
+  AuditEvent,
   DemandForecast,
   InventoryItem,
   NetworkPharmacy,
@@ -211,5 +212,29 @@ export const verifiedAlternatives: VerifiedAlternative[] = [
     type: "Same class review",
     verifier: "Doctor review required",
     status: "Pharmacist review",
+  },
+];
+
+export const auditEvents: AuditEvent[] = [
+  {
+    actor: "City Care Operator",
+    action: "Confirmed emergency reservation",
+    target: "R-1024 - Salbutamol Inhaler",
+    time: "3 min ago",
+    tone: "teal",
+  },
+  {
+    actor: "AI stock guard",
+    action: "Raised transfer recommendation",
+    target: "WellCare to City Care",
+    time: "11 min ago",
+    tone: "amber",
+  },
+  {
+    actor: "Union Med House",
+    action: "Delayed inventory sync",
+    target: "Critical medicines feed",
+    time: "31 min ago",
+    tone: "danger",
   },
 ];

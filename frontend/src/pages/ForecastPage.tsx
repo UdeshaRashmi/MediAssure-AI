@@ -1,6 +1,6 @@
 import { Activity, AlertTriangle, BarChart3, BrainCircuit, TrendingDown, TrendingUp } from "lucide-react";
 import { forecasts } from "../data/mockData";
-import { BarChart, Metric, Panel, StatusBadge } from "../components/ui";
+import { BarChart, Metric, Panel, ProgressBar, StatusBadge } from "../components/ui";
 
 export function ForecastPage() {
   const highestRisk = forecasts.reduce((top, item) => (item.stockoutRisk > top.stockoutRisk ? item : top), forecasts[0]);
@@ -37,11 +37,8 @@ export function ForecastPage() {
                     <p className="text-xs font-bold uppercase text-[#557084]">Stock-out risk</p>
                     <p className="text-sm font-bold text-[#092C46]">{forecast.stockoutRisk}%</p>
                   </div>
-                  <div className="mt-3 h-2 rounded-full bg-[#D8E8E8]">
-                    <div
-                      className={`h-2 rounded-full ${forecast.stockoutRisk > 75 ? "bg-[#C94D57]" : "bg-[#0D8F93]"}`}
-                      style={{ width: `${forecast.stockoutRisk}%` }}
-                    />
+                  <div className="mt-3">
+                    <ProgressBar value={forecast.stockoutRisk} dangerAt={75} />
                   </div>
                 </div>
               </div>

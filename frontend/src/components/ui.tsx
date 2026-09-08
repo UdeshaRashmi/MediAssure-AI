@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, MapPin } from "lucide-react";
+import { AlertTriangle, LoaderCircle, MapPin } from "lucide-react";
 import type { BadgeTone, InventoryItem } from "../types";
 
 export function Panel({
@@ -212,6 +212,35 @@ export function BarChart({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+export function ProgressBar({ value, dangerAt = 80 }: { value: number; dangerAt?: number }) {
+  return (
+    <div className="h-2 rounded-full bg-[#D8E8E8]">
+      <div
+        className={`h-2 rounded-full ${value >= dangerAt ? "bg-[#C94D57]" : value >= 55 ? "bg-[#F5A623]" : "bg-[#0D8F93]"}`}
+        style={{ width: `${Math.min(Math.max(value, 0), 100)}%` }}
+      />
+    </div>
+  );
+}
+
+export function EmptyState({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="rounded-md border border-dashed border-[#BFD9DB] bg-white p-6 text-center">
+      <p className="font-bold text-[#092C46]">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-[#557084]">{detail}</p>
+    </div>
+  );
+}
+
+export function LoadingState({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-[#BFD9DB] bg-white px-3 py-2 text-sm font-bold text-[#31556A]">
+      <LoaderCircle size={16} className="animate-spin text-[#0D8F93]" />
+      {label}
     </div>
   );
 }

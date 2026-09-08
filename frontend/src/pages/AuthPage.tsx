@@ -1,14 +1,37 @@
 import { useState, type FormEvent } from "react";
-import { LockKeyhole, Mail, ShieldCheck, UserRound } from "lucide-react";
+import { LockKeyhole, Mail, Phone, ShieldCheck, UserRound } from "lucide-react";
 import logo1 from "../logo1-transparent-tight.png";
-import { loginWithApi } from "../services/api";
+import { loginWithApi, signupWithApi } from "../services/api";
 import type { SessionUser } from "../types";
 
 const roles: SessionUser["role"][] = ["Pharmacist", "Hospital Staff", "Patient", "Admin"];
 
+const roleDetails: Record<SessionUser["role"], { email: string; description: string }> = {
+  Pharmacist: {
+    email: "pharmacist@mediassure.local",
+    description: "Inventory, reservations, forecasting, and stock transfers",
+  },
+  "Hospital Staff": {
+    email: "hospital@mediassure.local",
+    description: "Emergency requests, pharmacy matching, and patient coordination",
+  },
+  Patient: {
+    email: "patient@mediassure.local",
+    description: "Find medicine, create requests, and track reservations",
+  },
+  Admin: {
+    email: "admin@mediassure.local",
+    description: "System monitoring, network oversight, and governance controls",
+  },
+};
+
 export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [role, setRole] = useState<SessionUser["role"]>("Pharmacist");
   const [email, setEmail] = useState("pharmacist@mediassure.local");
+  const [name, setName] = useState("City Care Operator");
+  const [phone, setPhone] = useState("+94 77 123 4567");
+  const [password, setPassword] = useState("demo-password");
   const [authMode, setAuthMode] = useState<"ready" | "checking" | "offline">("ready");
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -16,12 +39,21 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
     setAuthMode("checking");
 
     try {
-      const user = await loginWithApi(email, "demo-password", role);
+      const user =
+        mode === "signin"
+          ? await loginWithApi(email, password, role)
+          : await signupWithApi({
+              email,
+              name,
+              password,
+              phone,
+              role,
+            });
       onLogin(user);
     } catch {
       setAuthMode("offline");
       onLogin({
-        name: role === "Patient" ? "Emergency User" : "City Care Operator",
+        name: mode === "signup" ? name : role === "Patient" ? "Emergency User" : "City Care Operator",
         email,
         role,
       });
@@ -51,12 +83,63 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
           <div className="grid h-12 w-12 place-items-center rounded-md bg-[#E7F7F6] text-[#0D8F93]">
             <ShieldCheck size={24} />
           </div>
-          <h2 className="mt-4 text-2xl font-bold">Secure sign in</h2>
+          <h2 className="mt-4 text-2xl font-bold">{mode === "signin" ? "Secure sign in" : "Create account"}</h2>
           <p className="mt-1 text-sm text-[#557084]">
-            {authMode === "offline" ? "Backend unavailable, continuing with local demo session." : "Demo authentication for the research prototype."}
+            {authMode === "offline"
+              ? "Backend unavailable, continuing with local demo session."
+              : mode === "signin"
+                ? "Demo authentication for the research prototype."
+                : "Create a role-based workspace for the prototype."}
           </p>
 
-          <label className="mt-5 block">
+          <div className="mt-5 grid grid-cols-2 rounded-md border border-[#BFD9DB] bg-[#F8FCFC] p-1">
+            <button
+              type="button"
+              onClick={() => setMode("signin")}
+              className={`h-10 rounded-md text-sm font-bold ${mode === "signin" ? "bg-white text-[#0D8F93] shadow-sm" : "text-[#31556A]"}`}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("signup")}
+              className={`h-10 rounded-md text-sm font-bold ${mode === "signup" ? "bg-white text-[#0D8F93] shadow-sm" : "text-[#31556A]"}`}
+            >
+              Sign up
+            </button>
+          </div>
+
+          {mode === "signup" && (
+            <>
+              <label className="mt-5 block">
+                <span className="flex items-center gap-2 text-xs font-bold uppercase text-[#557084]">
+                  <UserRound size={15} />
+                  Full name
+                </span>
+                <input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-3 outline-none"
+                  required
+                />
+              </label>
+
+              <label className="mt-4 block">
+                <span className="flex items-center gap-2 text-xs font-bold uppercase text-[#557084]">
+                  <Phone size={15} />
+                  Phone
+                </span>
+                <input
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-3 outline-none"
+                  type="tel"
+                />
+              </label>
+            </>
+          )}
+
+          <label className={`${mode === "signup" ? "mt-4" : "mt-5"} block`}>
             <span className="flex items-center gap-2 text-xs font-bold uppercase text-[#557084]">
               <Mail size={15} />
               Email
@@ -76,10 +159,12 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
               Password
             </span>
             <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
               className="mt-2 w-full rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-3 outline-none"
               type="password"
-              value="demo-password"
-              readOnly
+              minLength={6}
+              required
             />
           </label>
 
@@ -93,19 +178,24 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
                 <button
                   key={item}
                   type="button"
-                  onClick={() => setRole(item)}
-                  className={`h-10 rounded-md border px-3 text-sm font-bold ${
+                  onClick={() => {
+                    setRole(item);
+                    setEmail(roleDetails[item].email);
+                    setName(defaultNameForRole(item));
+                  }}
+                  className={`min-h-[72px] rounded-md border px-3 py-3 text-left text-sm transition ${
                     role === item ? "border-[#0D8F93] bg-[#E7F7F6] text-[#0D8F93]" : "border-[#BFD9DB] text-[#31556A]"
                   }`}
                 >
-                  {item}
+                  <span className="block font-bold">{item}</span>
+                  <span className="mt-1 block text-xs leading-4 text-[#557084]">{roleDetails[item].description}</span>
                 </button>
               ))}
             </div>
           </div>
 
           <button className="mt-5 h-11 w-full rounded-md bg-[#092C46] text-sm font-bold text-white">
-            {authMode === "checking" ? "Signing in..." : "Sign in"}
+            {authMode === "checking" ? (mode === "signin" ? "Signing in..." : "Creating account...") : mode === "signin" ? "Sign in" : "Create account"}
           </button>
         </form>
       </div>
@@ -120,4 +210,13 @@ function TrustPoint({ title, detail }: { title: string; detail: string }) {
       <p className="mt-1 text-sm text-[#557084]">{detail}</p>
     </article>
   );
+}
+
+function defaultNameForRole(role: SessionUser["role"]) {
+  return {
+    Patient: "Emergency User",
+    Pharmacist: "City Care Operator",
+    "Hospital Staff": "Hospital Coordinator",
+    Admin: "System Admin",
+  }[role];
 }

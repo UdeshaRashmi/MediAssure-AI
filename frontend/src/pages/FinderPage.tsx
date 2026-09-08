@@ -1,14 +1,18 @@
 import { CheckCircle2, Clock, Filter, MapPin, Navigation, PhoneCall, Pill, ShieldCheck } from "lucide-react";
 import type { PharmacyMatch } from "../types";
-import { Chip, MiniMetric, Panel, SafetyItem, Score, StatusBadge } from "../components/ui";
+import { Chip, EmptyState, LoadingState, MiniMetric, Panel, SafetyItem, Score, StatusBadge } from "../components/ui";
 
 export function FinderPage({
   matches,
+  matchesLoading,
+  matchSource,
   query,
   reservedPharmacy,
   onReserve,
 }: {
   matches: PharmacyMatch[];
+  matchesLoading: boolean;
+  matchSource: "api" | "mock";
   query: string;
   reservedPharmacy: string | null;
   onReserve: (name: string) => void;
@@ -36,6 +40,9 @@ export function FinderPage({
           <p className="mt-2 text-sm text-[#557084]">
             {query.trim() ? `Showing matches for "${query.trim()}".` : "Showing the most urgent available medicine matches."}
           </p>
+          <div className="mt-3">
+            <StatusBadge label={matchSource === "api" ? "Live API results" : "Demo data fallback"} tone={matchSource === "api" ? "teal" : "amber"} />
+          </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <MiniMetric label="Matches" value={matches.length.toString()} />
             <MiniMetric label="Best score" value={matches[0] ? `${matches[0].rescueScore}%` : "0%"} />
@@ -54,6 +61,7 @@ export function FinderPage({
           }
         >
           <div className="grid gap-3">
+            {matchesLoading && <LoadingState label="Refreshing pharmacy recommendations" />}
             {matches.map((match) => (
               <PharmacyCard
                 key={match.name}
@@ -63,9 +71,7 @@ export function FinderPage({
               />
             ))}
             {matches.length === 0 && (
-              <div className="rounded-md border border-[#BFD9DB] bg-white p-4 text-sm text-[#557084]">
-                No pharmacy matches found for this search.
-              </div>
+              <EmptyState title="No pharmacy matches found" detail="Try a generic name, nearby area, or another medicine category." />
             )}
           </div>
         </Panel>

@@ -16,6 +16,11 @@ class LoginRequest(BaseModel):
     role: str = "Pharmacist"
 
 
+class SignupRequest(LoginRequest):
+    name: str
+    phone: str | None = None
+
+
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -38,6 +43,29 @@ def login(payload: LoginRequest) -> LoginResponse:
         expires_at=expires_at,
         user={
             "name": "City Care Operator" if payload.role != "Patient" else "Emergency User",
+            "email": payload.email,
+            "role": payload.role,
+        },
+    )
+
+
+@router.post("/signup", response_model=LoginResponse)
+def signup(payload: SignupRequest) -> LoginResponse:
+    if len(payload.name.strip()) < 2:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if len(payload.password.strip()) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    settings = get_settings()
+    expires_at = datetime.now(UTC) + timedelta(hours=8)
+    token_seed = f"signup:{payload.email}:{payload.role}:{expires_at.isoformat()}:{settings.jwt_secret}"
+    access_token = sha256(token_seed.encode("utf-8")).hexdigest()
+
+    return LoginResponse(
+        access_token=access_token,
+        expires_at=expires_at,
+        user={
+            "name": payload.name,
             "email": payload.email,
             "role": payload.role,
         },
