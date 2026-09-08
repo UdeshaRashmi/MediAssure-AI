@@ -111,19 +111,19 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8001
 ```
 
 Backend URL:
 
 ```text
-http://localhost:8000
+http://localhost:8001
 ```
 
 API docs:
 
 ```text
-http://localhost:8000/docs
+http://localhost:8001/docs
 ```
 
 ### 2. Start The Frontend

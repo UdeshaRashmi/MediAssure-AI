@@ -130,7 +130,7 @@ export function App() {
       .catch(() => {
         if (!alive) return;
         setApiStatus("offline");
-        setAppError("Backend API is required. Start FastAPI on http://localhost:8000 and refresh the app.");
+        setAppError("Backend API is required. Start FastAPI on http://localhost:8001 and refresh the app.");
       })
       .finally(() => {
         if (alive) setAppLoading(false);

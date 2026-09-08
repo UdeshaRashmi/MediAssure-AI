@@ -76,7 +76,7 @@ export function SettingsPage({ auditEvents, user }: { auditEvents: AuditEvent[];
         <Panel title="API Environment">
           <div className="grid gap-3">
             <InfoRow icon={<KeyRound size={17} />} label="Auth mode" value="Demo bearer token" />
-            <InfoRow icon={<Database size={17} />} label="Base URL" value={import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000"} />
+            <InfoRow icon={<Database size={17} />} label="Base URL" value={import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001"} />
             <InfoRow icon={<BellRing size={17} />} label="Alerts" value="SNS-ready prototype" />
           </div>
         </Panel>
