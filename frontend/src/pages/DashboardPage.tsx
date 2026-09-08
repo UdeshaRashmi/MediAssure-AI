@@ -1,16 +1,25 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardList, Pill, Truck } from "lucide-react";
-import type { InventoryItem } from "../types";
-import { AvailabilityCard, BarChart, InventoryTable, Metric, Panel, StatusBadge } from "../components/ui";
+import type { DashboardSummary } from "../services/api";
+import type { InventoryItem, PharmacyMatch } from "../types";
+import { AvailabilityCard, BarChart, EmptyState, InventoryTable, Metric, Panel, StatusBadge } from "../components/ui";
 
-export function DashboardPage({ items }: { items: InventoryItem[] }) {
+export function DashboardPage({
+  items,
+  matches,
+  summary,
+}: {
+  items: InventoryItem[];
+  matches: PharmacyMatch[];
+  summary: DashboardSummary | null;
+}) {
   return (
     <div className="grid gap-5">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={<Pill size={20} />} label="Active medicines" value="128" tone="teal" />
-        <Metric icon={<AlertTriangle size={20} />} label="Low stock risk" value="7" tone="danger" />
-        <Metric icon={<CalendarClock size={20} />} label="Pending reservations" value="3" tone="amber" />
-        <Metric icon={<Truck size={20} />} label="Transfer suggestions" value="2" tone="navy" />
+        <Metric icon={<Pill size={20} />} label="Active medicines" value={(summary?.activeMedicines ?? items.length).toString()} tone="teal" />
+        <Metric icon={<AlertTriangle size={20} />} label="Low stock risk" value={(summary?.lowStockRisk ?? 0).toString()} tone="danger" />
+        <Metric icon={<CalendarClock size={20} />} label="Pending reservations" value={(summary?.pendingReservations ?? 0).toString()} tone="amber" />
+        <Metric icon={<Truck size={20} />} label="Transfer suggestions" value={(summary?.transferSuggestions ?? 0).toString()} tone="navy" />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
@@ -19,23 +28,36 @@ export function DashboardPage({ items }: { items: InventoryItem[] }) {
         </Panel>
         <Panel title="Emergency Availability">
           <div className="grid gap-3">
-            <AvailabilityCard medicine="Salbutamol Inhaler" confidence={95} eta="9 min" stock="10 units" />
-            <AvailabilityCard medicine="Insulin Rapid Acting" confidence={76} eta="18 min" stock="4 units" />
+            {matches.length === 0 && <EmptyState title="No backend recommendations" detail="Backend returned no emergency availability records." />}
+            {matches.slice(0, 2).map((match) => (
+              <AvailabilityCard
+                key={`${match.name}-${match.medicine}`}
+                medicine={match.medicine}
+                confidence={match.confidence}
+                eta={match.eta}
+                pharmacy={match.name}
+                stock={`${match.stock} units`}
+              />
+            ))}
             <div className="rounded-md border border-[#BFD9DB] bg-[#F8FCFC] p-4">
               <p className="text-sm font-semibold text-[#092C46]">AI recommendation</p>
-              <p className="mt-2 text-sm text-[#557084]">Prioritize Salbutamol transfer before peak evening demand.</p>
+              <p className="mt-2 text-sm text-[#557084]">
+                {items[0] ? `Prioritize ${items[0].medicine} before peak demand.` : "No inventory recommendation from backend yet."}
+              </p>
             </div>
           </div>
         </Panel>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <BarChart
-          data={items.map((item) => ({ label: item.medicine, value: item.stock - item.reserved }))}
-          valueKey="Available stock by medicine"
-        />
-        <BarChart data={items.map((item) => ({ label: item.medicine, value: item.predicted24h }))} valueKey="Predicted 24h demand" />
-      </div>
+      {items.length > 0 && (
+        <div className="grid gap-5 xl:grid-cols-2">
+          <BarChart
+            data={items.map((item) => ({ label: item.medicine, value: item.stock - item.reserved }))}
+            valueKey="Available stock by medicine"
+          />
+          <BarChart data={items.map((item) => ({ label: item.medicine, value: item.predicted24h }))} valueKey="Predicted 24h demand" />
+        </div>
+      )}
 
       <Panel title="Today Work Queue">
         <div className="grid gap-3 lg:grid-cols-3">

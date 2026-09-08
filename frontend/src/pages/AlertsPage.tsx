@@ -1,10 +1,11 @@
-import { alerts } from "../data/mockData";
-import { Panel } from "../components/ui";
+import type { OperationalAlert } from "../types";
+import { EmptyState, Panel } from "../components/ui";
 
-export function AlertsPage() {
+export function AlertsPage({ alerts }: { alerts: OperationalAlert[] }) {
   return (
     <Panel title="Operational Alerts">
       <div className="grid gap-3">
+        {alerts.length === 0 && <EmptyState title="No alerts" detail="Backend returned no active operational alerts." />}
         {alerts.map((alert) => (
           <article key={alert.title} className="flex gap-3 rounded-md border border-[#BFD9DB] bg-white p-4">
             <div className={`mt-1 h-3 w-3 rounded-full ${dotClass(alert.tone)}`} />

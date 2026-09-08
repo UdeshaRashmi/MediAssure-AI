@@ -1,22 +1,25 @@
 import { Activity, AlertTriangle, BarChart3, BrainCircuit, TrendingDown, TrendingUp } from "lucide-react";
-import { forecasts } from "../data/mockData";
-import { BarChart, Metric, Panel, ProgressBar, StatusBadge } from "../components/ui";
+import { BarChart, EmptyState, Metric, Panel, ProgressBar, StatusBadge } from "../components/ui";
+import type { DemandForecast } from "../types";
 
-export function ForecastPage() {
-  const highestRisk = forecasts.reduce((top, item) => (item.stockoutRisk > top.stockoutRisk ? item : top), forecasts[0]);
+export function ForecastPage({ forecasts }: { forecasts: DemandForecast[] }) {
+  const highestRisk = forecasts.length
+    ? forecasts.reduce((top, item) => (item.stockoutRisk > top.stockoutRisk ? item : top), forecasts[0])
+    : null;
   const projectedDemand = forecasts.reduce((sum, item) => sum + item.next24h, 0);
 
   return (
     <div className="grid gap-5">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric icon={<BrainCircuit size={20} />} label="Model confidence" value="91%" tone="teal" />
-        <Metric icon={<AlertTriangle size={20} />} label="Highest risk" value={`${highestRisk.stockoutRisk}%`} tone="danger" />
+        <Metric icon={<AlertTriangle size={20} />} label="Highest risk" value={highestRisk ? `${highestRisk.stockoutRisk}%` : "0%"} tone="danger" />
         <Metric icon={<BarChart3 size={20} />} label="24h demand" value={projectedDemand.toString()} tone="navy" />
         <Metric icon={<Activity size={20} />} label="Signals watched" value="18" tone="amber" />
       </div>
 
       <Panel title="Medicine Demand Forecasts">
         <div className="grid gap-3">
+          {forecasts.length === 0 && <EmptyState title="No forecasts" detail="Backend returned no demand forecast records." />}
           {forecasts.map((forecast) => (
             <article key={forecast.medicine} className="rounded-md border border-[#BFD9DB] bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -48,16 +51,20 @@ export function ForecastPage() {
       </Panel>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <BarChart
-          data={forecasts.map((forecast) => ({ label: forecast.medicine, value: forecast.next24h }))}
-          valueKey="Predicted 24h demand"
-        />
-        <BarChart
-          data={forecasts.map((forecast) => ({ label: forecast.medicine, value: forecast.stockoutRisk }))}
-          valueKey="Stock-out risk score"
-          max={100}
-          dangerAt={75}
-        />
+        {forecasts.length > 0 && (
+          <>
+            <BarChart
+              data={forecasts.map((forecast) => ({ label: forecast.medicine, value: forecast.next24h }))}
+              valueKey="Predicted 24h demand"
+            />
+            <BarChart
+              data={forecasts.map((forecast) => ({ label: forecast.medicine, value: forecast.stockoutRisk }))}
+              valueKey="Stock-out risk score"
+              max={100}
+              dangerAt={75}
+            />
+          </>
+        )}
       </div>
 
       <Panel title="Suggested Model Actions">

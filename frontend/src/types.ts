@@ -80,6 +80,8 @@ export type NetworkPharmacy = {
   stockHealth: number;
   urgentGaps: number;
   lastSync: string;
+  latitude: number;
+  longitude: number;
 };
 
 export type VerifiedAlternative = {

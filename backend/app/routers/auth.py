@@ -8,6 +8,7 @@ from app.core.config import get_settings
 
 
 router = APIRouter()
+ALLOWED_ROLES = {"Patient", "Pharmacist", "Hospital Staff", "Admin"}
 
 
 class LoginRequest(BaseModel):
@@ -30,6 +31,8 @@ class LoginResponse(BaseModel):
 
 @router.post("/login", response_model=LoginResponse)
 def login(payload: LoginRequest) -> LoginResponse:
+    if payload.role not in ALLOWED_ROLES:
+        raise HTTPException(status_code=400, detail="Unsupported role")
     if len(payload.password.strip()) < 6:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -51,6 +54,8 @@ def login(payload: LoginRequest) -> LoginResponse:
 
 @router.post("/signup", response_model=LoginResponse)
 def signup(payload: SignupRequest) -> LoginResponse:
+    if payload.role not in ALLOWED_ROLES:
+        raise HTTPException(status_code=400, detail="Unsupported role")
     if len(payload.name.strip()) < 2:
         raise HTTPException(status_code=400, detail="Name is required")
     if len(payload.password.strip()) < 6:

@@ -1,10 +1,19 @@
 import type { ReactNode } from "react";
 import { Ambulance, ArrowRight, Clock, LocateFixed, Pill, ShieldCheck, UserRound } from "lucide-react";
-import { pharmacyMatches, verifiedAlternatives } from "../data/mockData";
-import { Panel, StatusBadge } from "../components/ui";
-import type { Page } from "../types";
+import { EmptyState, Panel, StatusBadge } from "../components/ui";
+import type { Page, PharmacyMatch, VerifiedAlternative } from "../types";
 
-export function RequestPage({ onNavigate }: { onNavigate: (page: Page) => void }) {
+export function RequestPage({
+  matches,
+  verifiedAlternatives,
+  onNavigate,
+}: {
+  matches: PharmacyMatch[];
+  verifiedAlternatives: VerifiedAlternative[];
+  onNavigate: (page: Page) => void;
+}) {
+  const recommendedMatch = matches[0];
+
   return (
     <div className="grid gap-5">
       <section className="grid gap-5 rounded-lg border border-[#BFD9DB] bg-white p-4 shadow-sm xl:grid-cols-[1fr_360px]">
@@ -43,29 +52,40 @@ export function RequestPage({ onNavigate }: { onNavigate: (page: Page) => void }
 
         <div className="rounded-md border border-[#D8E8E8] bg-[#F8FCFC] p-4">
           <p className="text-sm font-bold text-[#092C46]">Recommended match</p>
-          <h3 className="mt-3 text-xl font-bold">{pharmacyMatches[0].name}</h3>
-          <p className="mt-1 text-sm text-[#557084]">
-            {pharmacyMatches[0].area} - ETA {pharmacyMatches[0].eta} - {pharmacyMatches[0].stock} units available
-          </p>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-md bg-white p-3">
-              <p className="text-xs font-bold uppercase text-[#557084]">Confidence</p>
-              <p className="mt-1 text-2xl font-bold text-[#0D8F93]">{pharmacyMatches[0].confidence}%</p>
+          {recommendedMatch ? (
+            <>
+              <h3 className="mt-3 text-xl font-bold">{recommendedMatch.name}</h3>
+              <p className="mt-1 text-sm text-[#557084]">
+                {recommendedMatch.area} - ETA {recommendedMatch.eta} - {recommendedMatch.stock} units available
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-md bg-white p-3">
+                  <p className="text-xs font-bold uppercase text-[#557084]">Confidence</p>
+                  <p className="mt-1 text-2xl font-bold text-[#0D8F93]">{recommendedMatch.confidence}%</p>
+                </div>
+                <div className="rounded-md bg-white p-3">
+                  <p className="text-xs font-bold uppercase text-[#557084]">Travel risk</p>
+                  <p className="mt-1 text-2xl font-bold text-[#B87500]">Low</p>
+                </div>
+              </div>
+              <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#31556A]">
+                <Clock size={16} />
+                Reservation hold expires in 14 min
+              </p>
+            </>
+          ) : (
+            <div className="mt-4">
+              <EmptyState title="No recommendation" detail="Backend returned no pharmacy match for this request." />
             </div>
-            <div className="rounded-md bg-white p-3">
-              <p className="text-xs font-bold uppercase text-[#557084]">Travel risk</p>
-              <p className="mt-1 text-2xl font-bold text-[#B87500]">Low</p>
-            </div>
-          </div>
-          <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-[#31556A]">
-            <Clock size={16} />
-            Reservation hold expires in 14 min
-          </p>
+          )}
         </div>
       </section>
 
       <Panel title="Verified Alternative Rules">
         <div className="grid gap-3 lg:grid-cols-3">
+          {verifiedAlternatives.length === 0 && (
+            <EmptyState title="No verified alternatives" detail="Backend returned no pharmacist-verified alternative medicine rules." />
+          )}
           {verifiedAlternatives.map((item) => (
             <article key={`${item.requested}-${item.alternative}`} className="rounded-md border border-[#BFD9DB] bg-white p-4">
               <div className="flex items-start justify-between gap-3">

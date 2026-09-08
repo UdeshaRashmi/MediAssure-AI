@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 import { BellRing, Database, KeyRound, ShieldAlert, SlidersHorizontal, UserRound } from "lucide-react";
-import { auditEvents } from "../data/mockData";
-import { Panel, StatusBadge } from "../components/ui";
-import type { SessionUser } from "../types";
+import { EmptyState, Panel, StatusBadge } from "../components/ui";
+import type { AuditEvent, SessionUser } from "../types";
 
-export function SettingsPage({ user }: { user: SessionUser }) {
+export function SettingsPage({ auditEvents, user }: { auditEvents: AuditEvent[]; user: SessionUser }) {
   return (
     <div className="grid gap-5">
       <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
@@ -47,8 +46,8 @@ export function SettingsPage({ user }: { user: SessionUser }) {
             />
             <ControlCard
               icon={<Database size={19} />}
-              title="Mock fallback"
-              detail="Use local demo data when the API is offline during presentations."
+              title="Backend required"
+              detail="Use FastAPI as the only data source for authenticated workspaces."
               enabled
             />
           </div>
@@ -58,6 +57,7 @@ export function SettingsPage({ user }: { user: SessionUser }) {
       <section className="grid gap-5 xl:grid-cols-[1fr_360px]">
         <Panel title="Audit Trail">
           <div className="grid gap-3">
+            {auditEvents.length === 0 && <EmptyState title="No audit events" detail="Backend returned no recent audit records." />}
             {auditEvents.map((event) => (
               <article key={`${event.actor}-${event.time}`} className="rounded-md border border-[#BFD9DB] bg-white p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">

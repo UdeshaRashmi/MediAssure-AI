@@ -1,10 +1,11 @@
-import { transfers } from "../data/mockData";
-import { Panel } from "../components/ui";
+import type { TransferSuggestion } from "../types";
+import { EmptyState, Panel } from "../components/ui";
 
-export function RebalancingPage() {
+export function RebalancingPage({ transfers }: { transfers: TransferSuggestion[] }) {
   return (
     <Panel title="Stock Rebalancing">
       <div className="grid gap-3">
+        {transfers.length === 0 && <EmptyState title="No transfer suggestions" detail="Backend returned no current stock rebalancing recommendations." />}
         {transfers.map((transfer) => (
           <article key={`${transfer.from}-${transfer.to}`} className="rounded-md border border-[#BFD9DB] bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-4">

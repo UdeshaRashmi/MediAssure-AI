@@ -27,7 +27,7 @@ export const defaultPageByRole: Record<SessionUser["role"], Page> = {
 
 const pagesByRole: Record<SessionUser["role"], Page[]> = {
   Patient: ["request", "finder", "reservations", "settings"],
-  Pharmacist: ["dashboard", "inventory", "forecast", "reservations", "rebalancing", "alerts", "settings"],
+  Pharmacist: ["dashboard", "inventory", "forecast", "reservations", "rebalancing", "network", "alerts", "settings"],
   "Hospital Staff": ["request", "finder", "reservations", "network", "alerts", "settings"],
   Admin: ["dashboard", "inventory", "forecast", "reservations", "rebalancing", "network", "alerts", "settings"],
 };
@@ -73,4 +73,3 @@ export function getNavGroupsForRole(role: SessionUser["role"]) {
 export function canAccessPage(role: SessionUser["role"], page: Page) {
   return pagesByRole[role].includes(page);
 }
-

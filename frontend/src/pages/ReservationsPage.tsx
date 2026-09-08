@@ -1,10 +1,11 @@
-import { reservations } from "../data/mockData";
-import { Panel, StatusBadge } from "../components/ui";
+import type { Reservation } from "../types";
+import { EmptyState, Panel, StatusBadge } from "../components/ui";
 
-export function ReservationsPage() {
+export function ReservationsPage({ reservations }: { reservations: Reservation[] }) {
   return (
     <Panel title="Medicine Reservations">
       <div className="grid gap-3">
+        {reservations.length === 0 && <EmptyState title="No reservations" detail="Backend returned no active medicine reservations." />}
         {reservations.map((reservation) => (
           <article key={reservation.id} className="rounded-md border border-[#BFD9DB] bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">

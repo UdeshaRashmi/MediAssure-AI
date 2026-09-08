@@ -32,7 +32,7 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
   const [name, setName] = useState("City Care Operator");
   const [phone, setPhone] = useState("+94 77 123 4567");
   const [password, setPassword] = useState("demo-password");
-  const [authMode, setAuthMode] = useState<"ready" | "checking" | "offline">("ready");
+  const [authMode, setAuthMode] = useState<"ready" | "checking" | "error">("ready");
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -51,12 +51,7 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
             });
       onLogin(user);
     } catch {
-      setAuthMode("offline");
-      onLogin({
-        name: mode === "signup" ? name : role === "Patient" ? "Emergency User" : "City Care Operator",
-        email,
-        role,
-      });
+      setAuthMode("error");
     }
   };
 
@@ -85,8 +80,8 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
           </div>
           <h2 className="mt-4 text-2xl font-bold">{mode === "signin" ? "Secure sign in" : "Create account"}</h2>
           <p className="mt-1 text-sm text-[#557084]">
-            {authMode === "offline"
-              ? "Backend unavailable, continuing with local demo session."
+            {authMode === "error"
+              ? "Backend authentication failed. Start the API server and try again."
               : mode === "signin"
                 ? "Demo authentication for the research prototype."
                 : "Create a role-based workspace for the prototype."}

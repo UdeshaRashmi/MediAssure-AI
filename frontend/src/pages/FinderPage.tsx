@@ -41,7 +41,7 @@ export function FinderPage({
             {query.trim() ? `Showing matches for "${query.trim()}".` : "Showing the most urgent available medicine matches."}
           </p>
           <div className="mt-3">
-            <StatusBadge label={matchSource === "api" ? "Live API results" : "Demo data fallback"} tone={matchSource === "api" ? "teal" : "amber"} />
+            <StatusBadge label={matchSource === "api" ? "Live backend results" : "Backend unavailable"} tone={matchSource === "api" ? "teal" : "amber"} />
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <MiniMetric label="Matches" value={matches.length.toString()} />

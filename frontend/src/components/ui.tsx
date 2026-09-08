@@ -119,11 +119,13 @@ export function AvailabilityCard({
   medicine,
   confidence,
   eta,
+  pharmacy = "City Care Pharmacy",
   stock,
 }: {
   medicine: string;
   confidence: number;
   eta: string;
+  pharmacy?: string;
   stock: string;
 }) {
   return (
@@ -133,7 +135,7 @@ export function AvailabilityCard({
           <h3 className="font-bold">{medicine}</h3>
           <p className="mt-1 flex items-center gap-1 text-sm text-[#557084]">
             <MapPin size={15} />
-            City Care Pharmacy - {eta}
+            {pharmacy} - {eta}
           </p>
         </div>
         <StatusBadge label={`${confidence}%`} tone={confidence > 85 ? "teal" : "amber"} />

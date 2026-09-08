@@ -1,13 +1,13 @@
 import { Cloud, MapPin, RadioTower, RotateCw, WifiOff } from "lucide-react";
-import { networkPharmacies } from "../data/mockData";
-import { Metric, Panel, ProgressBar, StatusBadge } from "../components/ui";
+import { EmptyState, Metric, Panel, ProgressBar, StatusBadge } from "../components/ui";
+import type { NetworkPharmacy } from "../types";
 
-export function NetworkPage() {
+export function NetworkPage({ networkPharmacies }: { networkPharmacies: NetworkPharmacy[] }) {
   const online = networkPharmacies.filter((pharmacy) => pharmacy.status === "Online").length;
   const gaps = networkPharmacies.reduce((sum, pharmacy) => sum + pharmacy.urgentGaps, 0);
-  const averageHealth = Math.round(
-    networkPharmacies.reduce((sum, pharmacy) => sum + pharmacy.stockHealth, 0) / networkPharmacies.length,
-  );
+  const averageHealth = networkPharmacies.length
+    ? Math.round(networkPharmacies.reduce((sum, pharmacy) => sum + pharmacy.stockHealth, 0) / networkPharmacies.length)
+    : 0;
 
   return (
     <div className="grid gap-5">
@@ -29,6 +29,7 @@ export function NetworkPage() {
           }
         >
           <div className="grid gap-3">
+            {networkPharmacies.length === 0 && <EmptyState title="No pharmacy network data" detail="Backend returned no partner pharmacy records." />}
             {networkPharmacies.map((pharmacy) => (
               <article key={pharmacy.name} className="rounded-md border border-[#BFD9DB] bg-white p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -71,10 +72,9 @@ export function NetworkPage() {
               <p className="text-sm font-bold">Nearest reliable coverage</p>
               <p className="mt-1 text-sm text-[#557084]">4.8 km city radius with one delayed inventory feed.</p>
               <div className="mt-3 grid gap-2">
-                <MapMarker label="City Care" tone="teal" />
-                <MapMarker label="WellCare" tone="teal" />
-                <MapMarker label="Union Med" tone="amber" />
-                <MapMarker label="Central" tone="teal" />
+                {networkPharmacies.map((pharmacy) => (
+                  <MapMarker key={pharmacy.name} label={pharmacy.name} tone={pharmacy.status === "Online" ? "teal" : "amber"} />
+                ))}
               </div>
             </div>
           </div>

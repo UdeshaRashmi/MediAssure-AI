@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Sidebar, SearchBox, TopBar } from "./components/Layout";
-import { inventory, pharmacyMatches } from "./data/mockData";
+import { EmptyState, LoadingState } from "./components/ui";
 import { AlertsPage } from "./pages/AlertsPage";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -13,8 +13,34 @@ import { ReservationsPage } from "./pages/ReservationsPage";
 import { RequestPage } from "./pages/RequestPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { canAccessPage, defaultPageByRole } from "./roleAccess";
-import { checkApiHealth, fetchPharmacyRecommendations, type ApiStatus } from "./services/api";
-import type { Page, PharmacyMatch, SessionUser } from "./types";
+import {
+  checkApiHealth,
+  fetchAuditEvents,
+  fetchAlerts,
+  fetchDashboardSummary,
+  fetchForecasts,
+  fetchInventory,
+  fetchNetworkPharmacies,
+  fetchPharmacyRecommendations,
+  fetchReservations,
+  fetchTransfers,
+  fetchVerifiedAlternatives,
+  type ApiStatus,
+  type DashboardSummary,
+} from "./services/api";
+import type {
+  DemandForecast,
+  AuditEvent,
+  InventoryItem,
+  NetworkPharmacy,
+  OperationalAlert,
+  Page,
+  PharmacyMatch,
+  Reservation,
+  SessionUser,
+  TransferSuggestion,
+  VerifiedAlternative,
+} from "./types";
 
 const sessionKey = "mediassure-session";
 
@@ -24,8 +50,19 @@ export function App() {
   const [reservedPharmacy, setReservedPharmacy] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
-  const [apiMatches, setApiMatches] = useState<PharmacyMatch[] | null>(null);
+  const [matches, setMatches] = useState<PharmacyMatch[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(false);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [transfers, setTransfers] = useState<TransferSuggestion[]>([]);
+  const [forecasts, setForecasts] = useState<DemandForecast[]>([]);
+  const [networkPharmacies, setNetworkPharmacies] = useState<NetworkPharmacy[]>([]);
+  const [alerts, setAlerts] = useState<OperationalAlert[]>([]);
+  const [verifiedAlternatives, setVerifiedAlternatives] = useState<VerifiedAlternative[]>([]);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
+  const [appLoading, setAppLoading] = useState(false);
+  const [appError, setAppError] = useState<string | null>(null);
   const [user, setUser] = useState<SessionUser | null>(() => {
     const saved = window.localStorage.getItem(sessionKey);
     try {
@@ -45,20 +82,7 @@ export function App() {
         item.generic.toLowerCase().includes(normalized) ||
         item.category.toLowerCase().includes(normalized),
     );
-  }, [query]);
-
-  const localMatches = useMemo(() => {
-    const normalized = query.toLowerCase().trim();
-    if (!normalized) return pharmacyMatches;
-    return pharmacyMatches.filter(
-      (match) =>
-        match.medicine.toLowerCase().includes(normalized) ||
-        match.name.toLowerCase().includes(normalized) ||
-        match.area.toLowerCase().includes(normalized),
-    );
-  }, [query]);
-
-  const filteredMatches = apiMatches ?? localMatches;
+  }, [inventory, query]);
 
   useEffect(() => {
     let alive = true;
@@ -73,8 +97,55 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (!user) return;
+
+    let alive = true;
+    setAppLoading(true);
+    setAppError(null);
+
+    Promise.all([
+      fetchDashboardSummary(),
+      fetchInventory(),
+      fetchReservations(),
+      fetchTransfers(),
+      fetchForecasts(),
+      fetchNetworkPharmacies(),
+      fetchAlerts(),
+      fetchVerifiedAlternatives(),
+      fetchAuditEvents(),
+    ])
+      .then(([summary, nextInventory, nextReservations, nextTransfers, nextForecasts, nextNetwork, nextAlerts, nextAlternatives, nextAuditEvents]) => {
+        if (!alive) return;
+        setDashboardSummary(summary);
+        setInventory(nextInventory);
+        setReservations(nextReservations);
+        setTransfers(nextTransfers);
+        setForecasts(nextForecasts);
+        setNetworkPharmacies(nextNetwork);
+        setAlerts(nextAlerts);
+        setVerifiedAlternatives(nextAlternatives);
+        setAuditEvents(nextAuditEvents);
+        setApiStatus("online");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setApiStatus("offline");
+        setAppError("Backend API is required. Start FastAPI on http://localhost:8000 and refresh the app.");
+      })
+      .finally(() => {
+        if (alive) setAppLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
     if (apiStatus !== "online") {
-      setApiMatches(null);
+      setMatches([]);
       setMatchesLoading(false);
       return;
     }
@@ -83,13 +154,14 @@ export function App() {
     setMatchesLoading(true);
 
     fetchPharmacyRecommendations(query)
-      .then((matches) => {
-        if (alive) setApiMatches(matches);
+      .then((nextMatches) => {
+        if (alive) setMatches(nextMatches);
       })
       .catch(() => {
         if (alive) {
           setApiStatus("offline");
-          setApiMatches(null);
+          setMatches([]);
+          setAppError("Backend API is required for pharmacy recommendations.");
         }
       })
       .finally(() => {
@@ -99,7 +171,7 @@ export function App() {
     return () => {
       alive = false;
     };
-  }, [apiStatus, query]);
+  }, [apiStatus, query, user]);
 
   const handleNavigate = (page: Page) => {
     if (user && !canAccessPage(user.role, page)) {
@@ -151,25 +223,31 @@ export function App() {
             <SearchBox value={query} onChange={setQuery} />
           </div>
 
-          {visiblePage === "finder" && (
+          {appLoading && <LoadingState label="Loading backend data" />}
+          {appError && <EmptyState title="Backend connection required" detail={appError} />}
+          {!appLoading && !appError && visiblePage === "finder" && (
             <FinderPage
-              matches={filteredMatches}
+              matches={matches}
               matchesLoading={matchesLoading}
-              matchSource={apiMatches ? "api" : "mock"}
+              matchSource="api"
               query={query}
               reservedPharmacy={reservedPharmacy}
               onReserve={setReservedPharmacy}
             />
           )}
-          {visiblePage === "request" && <RequestPage onNavigate={handleNavigate} />}
-          {visiblePage === "dashboard" && <DashboardPage items={filteredInventory} />}
-          {visiblePage === "inventory" && <InventoryPage items={filteredInventory} />}
-          {visiblePage === "forecast" && <ForecastPage />}
-          {visiblePage === "reservations" && <ReservationsPage />}
-          {visiblePage === "rebalancing" && <RebalancingPage />}
-          {visiblePage === "network" && <NetworkPage />}
-          {visiblePage === "alerts" && <AlertsPage />}
-          {visiblePage === "settings" && <SettingsPage user={user} />}
+          {!appLoading && !appError && visiblePage === "request" && (
+            <RequestPage matches={matches} verifiedAlternatives={verifiedAlternatives} onNavigate={handleNavigate} />
+          )}
+          {!appLoading && !appError && visiblePage === "dashboard" && (
+            <DashboardPage items={filteredInventory} matches={matches} summary={dashboardSummary} />
+          )}
+          {!appLoading && !appError && visiblePage === "inventory" && <InventoryPage items={filteredInventory} />}
+          {!appLoading && !appError && visiblePage === "forecast" && <ForecastPage forecasts={forecasts} />}
+          {!appLoading && !appError && visiblePage === "reservations" && <ReservationsPage reservations={reservations} />}
+          {!appLoading && !appError && visiblePage === "rebalancing" && <RebalancingPage transfers={transfers} />}
+          {!appLoading && !appError && visiblePage === "network" && <NetworkPage networkPharmacies={networkPharmacies} />}
+          {!appLoading && !appError && visiblePage === "alerts" && <AlertsPage alerts={alerts} />}
+          {!appLoading && !appError && visiblePage === "settings" && <SettingsPage auditEvents={auditEvents} user={user} />}
         </section>
       </div>
     </main>

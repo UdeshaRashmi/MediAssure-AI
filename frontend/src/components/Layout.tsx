@@ -40,7 +40,7 @@ export function TopBar({
           >
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <img src={logo1} alt="MediAssure" className="h-12 w-12 shrink-0 object-contain p-1 sm:h-14 sm:w-14" />
+          <img src={logo1} alt="MediAssure" className="h-16 w-16 shrink-0 object-contain p-1 sm:h-32 sm:w-32 sm:p-2" />
           <div className="min-w-0">
             <h2 className="truncate text-base font-bold text-[#092C46] sm:text-2xl">Predictive Pharmacy Console</h2>
             <p className="hidden text-sm text-[#557084] md:block">Emergency matching, forecasting, and pharmacy coordination</p>
@@ -50,7 +50,7 @@ export function TopBar({
           <div className="rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-2">
             <p className="text-xs font-bold uppercase text-[#557084]">API</p>
             <p className={`text-sm font-bold ${apiStatus === "online" ? "text-[#0D8F93]" : "text-[#B87500]"}`}>
-              {apiStatus === "checking" ? "Checking" : apiStatus === "online" ? "Online" : "Mock mode"}
+              {apiStatus === "checking" ? "Checking" : apiStatus === "online" ? "Online" : "Offline"}
             </p>
           </div>
           <IconButton label="Forecast radar">
@@ -98,7 +98,7 @@ export function Sidebar({
         <p className="mt-2 text-lg font-semibold">{user.name}</p>
         <p className="mt-1 truncate text-sm text-[#CFEAEB]">{user.email}</p>
         <div className="mt-3 inline-flex rounded-md bg-white/10 px-2 py-1 text-xs font-bold text-[#CFEAEB]">
-          API {apiStatus === "online" ? "online" : apiStatus === "checking" ? "checking" : "mock mode"}
+          API {apiStatus === "online" ? "online" : apiStatus === "checking" ? "checking" : "offline"}
         </div>
       </div>
       <nav className="grid gap-1">
