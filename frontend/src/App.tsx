@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sidebar, SearchBox, TopBar } from "./components/Layout";
 import { inventory, pharmacyMatches } from "./data/mockData";
 import { AlertsPage } from "./pages/AlertsPage";
+import { AuthPage } from "./pages/AuthPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ForecastPage } from "./pages/ForecastPage";
 import { FinderPage } from "./pages/FinderPage";
@@ -10,13 +11,22 @@ import { NetworkPage } from "./pages/NetworkPage";
 import { RebalancingPage } from "./pages/RebalancingPage";
 import { ReservationsPage } from "./pages/ReservationsPage";
 import { RequestPage } from "./pages/RequestPage";
-import type { Page } from "./types";
+import { checkApiHealth, fetchPharmacyRecommendations, type ApiStatus } from "./services/api";
+import type { Page, PharmacyMatch, SessionUser } from "./types";
+
+const sessionKey = "mediassure-session";
 
 export function App() {
   const [activePage, setActivePage] = useState<Page>("finder");
   const [query, setQuery] = useState("");
   const [reservedPharmacy, setReservedPharmacy] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
+  const [apiMatches, setApiMatches] = useState<PharmacyMatch[] | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(() => {
+    const saved = window.localStorage.getItem(sessionKey);
+    return saved ? (JSON.parse(saved) as SessionUser) : null;
+  });
 
   const filteredInventory = useMemo(() => {
     const normalized = query.toLowerCase().trim();
@@ -29,7 +39,7 @@ export function App() {
     );
   }, [query]);
 
-  const filteredMatches = useMemo(() => {
+  const localMatches = useMemo(() => {
     const normalized = query.toLowerCase().trim();
     if (!normalized) return pharmacyMatches;
     return pharmacyMatches.filter(
@@ -40,14 +50,75 @@ export function App() {
     );
   }, [query]);
 
+  const filteredMatches = apiMatches ?? localMatches;
+
+  useEffect(() => {
+    let alive = true;
+
+    checkApiHealth().then((online) => {
+      if (alive) setApiStatus(online ? "online" : "offline");
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (apiStatus !== "online") {
+      setApiMatches(null);
+      return;
+    }
+
+    let alive = true;
+
+    fetchPharmacyRecommendations(query)
+      .then((matches) => {
+        if (alive) setApiMatches(matches);
+      })
+      .catch(() => {
+        if (alive) {
+          setApiStatus("offline");
+          setApiMatches(null);
+        }
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [apiStatus, query]);
+
   const handleNavigate = (page: Page) => {
     setActivePage(page);
     setMenuOpen(false);
   };
 
+  const handleLogin = (nextUser: SessionUser) => {
+    window.localStorage.setItem(sessionKey, JSON.stringify(nextUser));
+    setUser(nextUser);
+  };
+
+  const handleLogout = () => {
+    window.localStorage.removeItem(sessionKey);
+    window.localStorage.removeItem("mediassure-token");
+    window.localStorage.removeItem("mediassure-token-expires-at");
+    setUser(null);
+    setActivePage("finder");
+  };
+
+  if (!user) {
+    return <AuthPage onLogin={handleLogin} />;
+  }
+
   return (
     <main className="min-h-screen bg-[#F2F7F7] text-[#092C46]">
-      <TopBar menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} />
+      <TopBar
+        apiStatus={apiStatus}
+        menuOpen={menuOpen}
+        user={user}
+        onLogout={handleLogout}
+        onMenuToggle={() => setMenuOpen((open) => !open)}
+      />
       <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 lg:grid-cols-[260px_1fr]">
         <Sidebar activePage={activePage} menuOpen={menuOpen} onNavigate={handleNavigate} />
 

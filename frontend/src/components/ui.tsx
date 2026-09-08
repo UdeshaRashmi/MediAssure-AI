@@ -171,3 +171,47 @@ export function InventoryTable({ items, compact = false }: { items: InventoryIte
     </div>
   );
 }
+
+export function BarChart({
+  data,
+  valueKey,
+  max,
+  dangerAt,
+}: {
+  data: { label: string; value: number }[];
+  valueKey: string;
+  max?: number;
+  dangerAt?: number;
+}) {
+  const chartMax = max ?? Math.max(...data.map((item) => item.value), 1);
+
+  return (
+    <div className="rounded-md border border-[#BFD9DB] bg-white p-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-sm font-bold text-[#092C46]">{valueKey}</p>
+        <p className="text-xs font-bold uppercase text-[#557084]">Live model</p>
+      </div>
+      <div className="flex h-56 items-end gap-3">
+        {data.map((item) => {
+          const height = Math.max((item.value / chartMax) * 100, 6);
+          const isDanger = dangerAt ? item.value >= dangerAt : false;
+
+          return (
+            <div key={item.label} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
+              <span className="text-xs font-bold text-[#31556A]">{item.value}</span>
+              <div className="flex h-40 w-full items-end rounded-md bg-[#F2F7F7] px-1">
+                <div
+                  className={`w-full rounded-t-md ${isDanger ? "bg-[#C94D57]" : "bg-[#0D8F93]"}`}
+                  style={{ height: `${height}%` }}
+                />
+              </div>
+              <span className="w-full truncate text-center text-xs font-semibold text-[#557084]" title={item.label}>
+                {item.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

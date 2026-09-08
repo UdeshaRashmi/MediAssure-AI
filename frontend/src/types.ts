@@ -88,3 +88,9 @@ export type VerifiedAlternative = {
   verifier: string;
   status: "Display allowed" | "Pharmacist review";
 };
+
+export type SessionUser = {
+  name: string;
+  email: string;
+  role: "Patient" | "Pharmacist" | "Hospital Staff" | "Admin";
+};

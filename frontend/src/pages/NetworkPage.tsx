@@ -61,15 +61,21 @@ export function NetworkPage() {
         </Panel>
 
         <Panel title="Coverage Map">
-          <div className="relative min-h-[380px] overflow-hidden rounded-md border border-[#BFD9DB] bg-[#E7F7F6]">
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,44,70,0.08)_1px,transparent_1px),linear-gradient(rgba(9,44,70,0.08)_1px,transparent_1px)] bg-[size:42px_42px]" />
-            <MapMarker className="left-[18%] top-[24%]" label="City Care" tone="teal" />
-            <MapMarker className="left-[52%] top-[30%]" label="WellCare" tone="teal" />
-            <MapMarker className="left-[38%] top-[62%]" label="Union Med" tone="amber" />
-            <MapMarker className="left-[70%] top-[56%]" label="Central" tone="teal" />
-            <div className="absolute bottom-4 left-4 right-4 rounded-md bg-white/95 p-3 shadow-sm">
+          <div className="overflow-hidden rounded-md border border-[#BFD9DB] bg-white">
+            <iframe
+              className="h-[360px] w-full border-0"
+              title="Colombo pharmacy coverage map"
+              src="https://www.openstreetmap.org/export/embed.html?bbox=79.842%2C6.900%2C79.890%2C6.950&layer=mapnik&marker=6.9271%2C79.8612"
+            />
+            <div className="border-t border-[#D8E8E8] p-4">
               <p className="text-sm font-bold">Nearest reliable coverage</p>
               <p className="mt-1 text-sm text-[#557084]">4.8 km city radius with one delayed inventory feed.</p>
+              <div className="mt-3 grid gap-2">
+                <MapMarker label="City Care" tone="teal" />
+                <MapMarker label="WellCare" tone="teal" />
+                <MapMarker label="Union Med" tone="amber" />
+                <MapMarker label="Central" tone="teal" />
+              </div>
             </div>
           </div>
         </Panel>
@@ -78,12 +84,12 @@ export function NetworkPage() {
   );
 }
 
-function MapMarker({ className, label, tone }: { className: string; label: string; tone: "teal" | "amber" }) {
+function MapMarker({ label, tone }: { label: string; tone: "teal" | "amber" }) {
   const color = tone === "teal" ? "bg-[#0D8F93]" : "bg-[#F5A623]";
   return (
-    <div className={`absolute ${className}`}>
-      <div className={`h-4 w-4 rounded-full ${color} ring-4 ring-white`} />
-      <p className="mt-2 rounded-md bg-white px-2 py-1 text-xs font-bold text-[#092C46] shadow-sm">{label}</p>
+    <div className="flex items-center gap-2">
+      <div className={`h-3 w-3 rounded-full ${color}`} />
+      <p className="text-xs font-bold text-[#092C46]">{label}</p>
     </div>
   );
 }

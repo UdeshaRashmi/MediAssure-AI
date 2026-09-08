@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Hospital,
   LayoutDashboard,
+  LogOut,
   Menu,
   Radar,
   Search,
@@ -16,7 +17,8 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
-import type { Page } from "../types";
+import type { ApiStatus } from "../services/api";
+import type { Page, SessionUser } from "../types";
 import logo1 from "../logo1-transparent-tight.png";
 import { IconButton } from "./ui";
 
@@ -42,7 +44,19 @@ const navGroups: { title: string; items: { id: Page; label: string; icon: ReactN
   },
 ];
 
-export function TopBar({ menuOpen, onMenuToggle }: { menuOpen: boolean; onMenuToggle: () => void }) {
+export function TopBar({
+  apiStatus,
+  menuOpen,
+  user,
+  onLogout,
+  onMenuToggle,
+}: {
+  apiStatus: ApiStatus;
+  menuOpen: boolean;
+  user: SessionUser;
+  onLogout: () => void;
+  onMenuToggle: () => void;
+}) {
   return (
     <header className="border-b border-[#BFD9DB] bg-white">
       <div className="mx-auto flex max-w-7xl flex-nowrap items-center justify-between gap-2 px-3 py-2 sm:px-4">
@@ -61,6 +75,12 @@ export function TopBar({ menuOpen, onMenuToggle }: { menuOpen: boolean; onMenuTo
           </div>
         </div>
         <div className="hidden shrink-0 items-center gap-2 sm:flex">
+          <div className="rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-2">
+            <p className="text-xs font-bold uppercase text-[#557084]">API</p>
+            <p className={`text-sm font-bold ${apiStatus === "online" ? "text-[#0D8F93]" : "text-[#B87500]"}`}>
+              {apiStatus === "checking" ? "Checking" : apiStatus === "online" ? "Online" : "Mock mode"}
+            </p>
+          </div>
           <IconButton label="Forecast radar">
             <Radar size={18} />
           </IconButton>
@@ -69,7 +89,14 @@ export function TopBar({ menuOpen, onMenuToggle }: { menuOpen: boolean; onMenuTo
           </IconButton>
           <button className="hidden h-11 items-center gap-2 rounded-md bg-[#092C46] px-4 text-sm font-bold text-white sm:inline-flex">
             <ShieldCheck size={17} />
-            Pharmacist
+            {user.role}
+          </button>
+          <button
+            title="Sign out"
+            onClick={onLogout}
+            className="grid h-11 w-11 place-items-center rounded-md border border-[#BFD9DB] bg-white text-[#31556A]"
+          >
+            <LogOut size={18} />
           </button>
         </div>
       </div>

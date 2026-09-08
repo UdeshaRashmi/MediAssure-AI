@@ -1,6 +1,6 @@
 import { Activity, AlertTriangle, BarChart3, BrainCircuit, TrendingDown, TrendingUp } from "lucide-react";
 import { forecasts } from "../data/mockData";
-import { Metric, Panel, StatusBadge } from "../components/ui";
+import { BarChart, Metric, Panel, StatusBadge } from "../components/ui";
 
 export function ForecastPage() {
   const highestRisk = forecasts.reduce((top, item) => (item.stockoutRisk > top.stockoutRisk ? item : top), forecasts[0]);
@@ -49,6 +49,19 @@ export function ForecastPage() {
           ))}
         </div>
       </Panel>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <BarChart
+          data={forecasts.map((forecast) => ({ label: forecast.medicine, value: forecast.next24h }))}
+          valueKey="Predicted 24h demand"
+        />
+        <BarChart
+          data={forecasts.map((forecast) => ({ label: forecast.medicine, value: forecast.stockoutRisk }))}
+          valueKey="Stock-out risk score"
+          max={100}
+          dangerAt={75}
+        />
+      </div>
 
       <Panel title="Suggested Model Actions">
         <div className="grid gap-3 lg:grid-cols-3">
