@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { CheckCircle2, Clock, Filter, MapPin, Navigation, PhoneCall, Pill, ShieldCheck } from "lucide-react";
 import type { PharmacyMatch } from "../types";
-import { Chip, EmptyState, LoadingState, MiniMetric, Panel, SafetyItem, Score, StatusBadge } from "../components/ui";
+import { Chip, EmptyState, LoadingState, MiniMetric, Modal, Panel, SafetyItem, Score, StatusBadge } from "../components/ui";
 
 export function FinderPage({
   matches,
@@ -17,6 +18,10 @@ export function FinderPage({
   reservedPharmacy: string | null;
   onReserve: (name: string) => void;
 }) {
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [activeDialog, setActiveDialog] = useState<{ type: "reserve" | "call"; match: PharmacyMatch } | null>(null);
+  const [notice, setNotice] = useState("");
+
   return (
     <div className="grid gap-5">
       <section className="grid gap-4 rounded-lg border border-[#BFD9DB] bg-white p-4 shadow-sm xl:grid-cols-[1fr_320px]">
@@ -54,7 +59,11 @@ export function FinderPage({
         <Panel
           title="Recommended Pharmacies"
           action={
-            <button className="inline-flex h-10 items-center gap-2 rounded-md border border-[#BFD9DB] bg-white px-3 text-sm font-bold text-[#31556A]">
+            <button
+              type="button"
+              onClick={() => setFilterOpen(true)}
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-[#BFD9DB] bg-white px-3 text-sm font-bold text-[#31556A]"
+            >
               <Filter size={16} />
               Filter
             </button>
@@ -67,7 +76,8 @@ export function FinderPage({
                 key={match.name}
                 match={match}
                 reserved={reservedPharmacy === match.name}
-                onReserve={() => onReserve(match.name)}
+                onCall={() => setActiveDialog({ type: "call", match })}
+                onReserve={() => setActiveDialog({ type: "reserve", match })}
               />
             ))}
             {matches.length === 0 && (
@@ -83,6 +93,96 @@ export function FinderPage({
           </div>
         </Panel>
       </div>
+
+      {notice && <div className="rounded-md border border-[#BFD9DB] bg-white p-4 text-sm font-bold text-[#0D8F93]">{notice}</div>}
+
+      <Modal title="Filter Pharmacies" open={filterOpen} onClose={() => setFilterOpen(false)}>
+        <form
+          className="grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setNotice("Filter preferences applied for this search view.");
+            setFilterOpen(false);
+          }}
+        >
+          <label className="block">
+            <span className="text-xs font-bold uppercase text-[#557084]">Minimum rescue score</span>
+            <input type="range" min={40} max={100} defaultValue={75} className="mt-3 w-full" />
+          </label>
+          <label className="block">
+            <span className="text-xs font-bold uppercase text-[#557084]">Maximum ETA</span>
+            <select className="mt-2 w-full rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-3 outline-none">
+              <option>15 minutes</option>
+              <option>30 minutes</option>
+              <option>Any available pharmacy</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 rounded-md border border-[#BFD9DB] bg-[#F8FCFC] p-3 text-sm font-bold text-[#31556A]">
+            <input type="checkbox" defaultChecked />
+            Show pharmacist-verified stock only
+          </label>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setFilterOpen(false)} className="h-10 rounded-md border border-[#BFD9DB] px-4 text-sm font-bold text-[#31556A]">
+              Cancel
+            </button>
+            <button className="h-10 rounded-md bg-[#0D8F93] px-4 text-sm font-bold text-white">Apply filters</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        title={activeDialog?.type === "call" ? "Call Pharmacy" : "Reserve Medicine"}
+        open={Boolean(activeDialog)}
+        onClose={() => setActiveDialog(null)}
+      >
+        {activeDialog && (
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (activeDialog.type === "reserve") {
+                onReserve(activeDialog.match.name);
+                setNotice(`Reservation request prepared for ${activeDialog.match.medicine} at ${activeDialog.match.name}.`);
+              } else {
+                setNotice(`Call task opened for ${activeDialog.match.name}: ${activeDialog.match.phone}.`);
+              }
+              setActiveDialog(null);
+            }}
+          >
+            <div className="rounded-md border border-[#BFD9DB] bg-[#F8FCFC] p-4">
+              <h3 className="font-bold">{activeDialog.match.name}</h3>
+              <p className="mt-1 text-sm text-[#557084]">
+                {activeDialog.match.medicine} - {activeDialog.match.stock} units - ETA {activeDialog.match.eta}
+              </p>
+            </div>
+            {activeDialog.type === "reserve" ? (
+              <>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase text-[#557084]">Patient name</span>
+                  <input className="mt-2 w-full rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-3 outline-none" defaultValue="Emergency user" required />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase text-[#557084]">Quantity</span>
+                  <input className="mt-2 w-full rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-3 outline-none" type="number" min={1} max={activeDialog.match.stock} defaultValue={1} required />
+                </label>
+              </>
+            ) : (
+              <label className="block">
+                <span className="text-xs font-bold uppercase text-[#557084]">Call note</span>
+                <textarea className="mt-2 min-h-24 w-full rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-3 outline-none" defaultValue={`Confirm availability for ${activeDialog.match.medicine}.`} />
+              </label>
+            )}
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setActiveDialog(null)} className="h-10 rounded-md border border-[#BFD9DB] px-4 text-sm font-bold text-[#31556A]">
+                Cancel
+              </button>
+              <button className="h-10 rounded-md bg-[#0D8F93] px-4 text-sm font-bold text-white">
+                {activeDialog.type === "reserve" ? "Submit reservation" : "Save call task"}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -90,10 +190,12 @@ export function FinderPage({
 function PharmacyCard({
   match,
   reserved,
+  onCall,
   onReserve,
 }: {
   match: PharmacyMatch;
   reserved: boolean;
+  onCall: () => void;
   onReserve: () => void;
 }) {
   return (
@@ -127,7 +229,11 @@ function PharmacyCard({
           <CheckCircle2 size={17} />
           {reserved ? "Reserved" : "Reserve medicine"}
         </button>
-        <button className="inline-flex h-10 items-center gap-2 rounded-md border border-[#BFD9DB] bg-white px-4 text-sm font-bold text-[#31556A]">
+        <button
+          type="button"
+          onClick={onCall}
+          className="inline-flex h-10 items-center gap-2 rounded-md border border-[#BFD9DB] bg-white px-4 text-sm font-bold text-[#31556A]"
+        >
           <PhoneCall size={17} />
           Call pharmacy
         </button>

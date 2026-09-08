@@ -157,10 +157,10 @@ Use the auth screen and choose a role:
 - Patient
 - Admin
 
-Default demo password:
+Password rule:
 
 ```text
-demo-password
+Use any password with at least 6 characters.
 ```
 
 The selected role controls which pages appear in the sidebar.

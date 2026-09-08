@@ -1,26 +1,22 @@
 import { useState, type FormEvent } from "react";
-import { LockKeyhole, Mail, Phone, ShieldCheck, UserRound } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Mail, Phone, ShieldCheck, UserRound } from "lucide-react";
 import logo1 from "../logo1-transparent-tight.png";
 import { loginWithApi, signupWithApi } from "../services/api";
 import type { SessionUser } from "../types";
 
 const roles: SessionUser["role"][] = ["Pharmacist", "Hospital Staff", "Patient", "Admin"];
 
-const roleDetails: Record<SessionUser["role"], { email: string; description: string }> = {
+const roleDetails: Record<SessionUser["role"], { description: string }> = {
   Pharmacist: {
-    email: "pharmacist@mediassure.local",
     description: "Inventory, reservations, forecasting, and stock transfers",
   },
   "Hospital Staff": {
-    email: "hospital@mediassure.local",
     description: "Emergency requests, pharmacy matching, and patient coordination",
   },
   Patient: {
-    email: "patient@mediassure.local",
     description: "Find medicine, create requests, and track reservations",
   },
   Admin: {
-    email: "admin@mediassure.local",
     description: "System monitoring, network oversight, and governance controls",
   },
 };
@@ -28,14 +24,25 @@ const roleDetails: Record<SessionUser["role"], { email: string; description: str
 export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [role, setRole] = useState<SessionUser["role"]>("Pharmacist");
-  const [email, setEmail] = useState("pharmacist@mediassure.local");
-  const [name, setName] = useState("City Care Operator");
-  const [phone, setPhone] = useState("+94 77 123 4567");
-  const [password, setPassword] = useState("demo-password");
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<"ready" | "checking" | "error">("ready");
+  const [authError, setAuthError] = useState("");
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setAuthError("");
+
+    if (mode === "signup" && password !== confirmPassword) {
+      setAuthMode("error");
+      setAuthError("Passwords do not match.");
+      return;
+    }
+
     setAuthMode("checking");
 
     try {
@@ -52,6 +59,7 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
       onLogin(user);
     } catch {
       setAuthMode("error");
+      setAuthError("Backend authentication failed. Check the API server and credentials.");
     }
   };
 
@@ -81,9 +89,9 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
           <h2 className="mt-4 text-2xl font-bold">{mode === "signin" ? "Secure sign in" : "Create account"}</h2>
           <p className="mt-1 text-sm text-[#557084]">
             {authMode === "error"
-              ? "Backend authentication failed. Start the API server and try again."
+              ? authError
               : mode === "signin"
-                ? "Demo authentication for the research prototype."
+                ? "Sign in with your email, password, and selected role."
                 : "Create a role-based workspace for the prototype."}
           </p>
 
@@ -153,15 +161,44 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
               <LockKeyhole size={15} />
               Password
             </span>
-            <input
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="mt-2 w-full rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-3 outline-none"
-              type="password"
-              minLength={6}
-              required
-            />
+            <div className="mt-2 flex rounded-md border border-[#BFD9DB] bg-[#F8FCFC]">
+              <input
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="min-w-0 flex-1 bg-transparent px-3 py-3 outline-none"
+                type={showPassword ? "text" : "password"}
+                minLength={6}
+                placeholder="Enter your password"
+                required
+              />
+              <button
+                type="button"
+                title={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="grid w-11 place-items-center text-[#31556A]"
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
           </label>
+
+          {mode === "signup" && (
+            <label className="mt-4 block">
+              <span className="flex items-center gap-2 text-xs font-bold uppercase text-[#557084]">
+                <LockKeyhole size={15} />
+                Confirm password
+              </span>
+              <input
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                className="mt-2 w-full rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-3 outline-none"
+                type={showPassword ? "text" : "password"}
+                minLength={6}
+                placeholder="Re-enter your password"
+                required
+              />
+            </label>
+          )}
 
           <div className="mt-4">
             <p className="flex items-center gap-2 text-xs font-bold uppercase text-[#557084]">
@@ -175,8 +212,6 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
                   type="button"
                   onClick={() => {
                     setRole(item);
-                    setEmail(roleDetails[item].email);
-                    setName(defaultNameForRole(item));
                   }}
                   className={`min-h-[72px] rounded-md border px-3 py-3 text-left text-sm transition ${
                     role === item ? "border-[#0D8F93] bg-[#E7F7F6] text-[#0D8F93]" : "border-[#BFD9DB] text-[#31556A]"
@@ -205,13 +240,4 @@ function TrustPoint({ title, detail }: { title: string; detail: string }) {
       <p className="mt-1 text-sm text-[#557084]">{detail}</p>
     </article>
   );
-}
-
-function defaultNameForRole(role: SessionUser["role"]) {
-  return {
-    Patient: "Emergency User",
-    Pharmacist: "City Care Operator",
-    "Hospital Staff": "Hospital Coordinator",
-    Admin: "System Admin",
-  }[role];
 }

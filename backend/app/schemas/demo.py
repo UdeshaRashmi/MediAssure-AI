@@ -38,6 +38,21 @@ class InventoryItem(BaseModel):
     updated: str
 
 
+class InventoryCreate(BaseModel):
+    medicine: str
+    generic: str = "Unknown"
+    category: str = "General"
+    stock: int = Field(gt=0)
+    reserved: int = Field(default=0, ge=0)
+    reorder_level: int = Field(default=10, ge=0)
+    predicted_24h: int = Field(default=0, ge=0)
+    pharmacy_name: str
+    area: str = "Colombo"
+    contact_number: str = "+94 11 000 0000"
+    latitude: float = 6.9271
+    longitude: float = 79.8612
+
+
 class ReservationItem(BaseModel):
     id: str
     patient: str

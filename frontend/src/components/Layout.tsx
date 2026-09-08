@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Bell,
   ChevronRight,
@@ -14,7 +14,7 @@ import { getNavGroupsForRole } from "../roleAccess";
 import type { ApiStatus } from "../services/api";
 import type { Page, SessionUser } from "../types";
 import logo1 from "../logo1-transparent-tight.png";
-import { IconButton } from "./ui";
+import { IconButton, Modal } from "./ui";
 
 export function TopBar({
   apiStatus,
@@ -29,50 +29,70 @@ export function TopBar({
   onLogout: () => void;
   onMenuToggle: () => void;
 }) {
+  const [dialog, setDialog] = useState<"radar" | "notifications" | null>(null);
+
   return (
-    <header className="border-b border-[#BFD9DB] bg-white">
-      <div className="mx-auto flex max-w-7xl flex-nowrap items-center justify-between gap-2 px-3 py-2 sm:px-4">
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-          <button
-            title={menuOpen ? "Close menu" : "Open menu"}
-            onClick={onMenuToggle}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[#BFD9DB] bg-white text-[#0D8F93] lg:hidden"
-          >
-            {menuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-          <img src={logo1} alt="MediAssure" className="h-16 w-16 shrink-0 object-contain p-1 sm:h-32 sm:w-32 sm:p-2" />
-          <div className="min-w-0">
-            <h2 className="truncate text-base font-bold text-[#092C46] sm:text-2xl">Predictive Pharmacy Console</h2>
-            <p className="hidden text-sm text-[#557084] md:block">Emergency matching, forecasting, and pharmacy coordination</p>
+    <>
+      <header className="border-b border-[#BFD9DB] bg-white">
+        <div className="mx-auto flex max-w-7xl flex-nowrap items-center justify-between gap-2 px-3 py-2 sm:px-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <button
+              title={menuOpen ? "Close menu" : "Open menu"}
+              onClick={onMenuToggle}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[#BFD9DB] bg-white text-[#0D8F93] lg:hidden"
+            >
+              {menuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <img src={logo1} alt="MediAssure" className="h-16 w-16 shrink-0 object-contain p-1 sm:h-32 sm:w-32 sm:p-2" />
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-bold text-[#092C46] sm:text-2xl">Predictive Pharmacy Console</h2>
+              <p className="hidden text-sm text-[#557084] md:block">Emergency matching, forecasting, and pharmacy coordination</p>
+            </div>
+          </div>
+          <div className="hidden shrink-0 items-center gap-2 sm:flex">
+            <div className="rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-2">
+              <p className="text-xs font-bold uppercase text-[#557084]">API</p>
+              <p className={`text-sm font-bold ${apiStatus === "online" ? "text-[#0D8F93]" : "text-[#B87500]"}`}>
+                {apiStatus === "checking" ? "Checking" : apiStatus === "online" ? "Online" : "Offline"}
+              </p>
+            </div>
+            <IconButton label="Forecast radar" onClick={() => setDialog("radar")}>
+              <Radar size={18} />
+            </IconButton>
+            <IconButton label="Notifications" onClick={() => setDialog("notifications")}>
+              <Bell size={18} />
+            </IconButton>
+            <button className="hidden h-11 items-center gap-2 rounded-md bg-[#092C46] px-4 text-sm font-bold text-white sm:inline-flex">
+              <ShieldCheck size={17} />
+              {user.role}
+            </button>
+            <button
+              title="Sign out"
+              onClick={onLogout}
+              className="grid h-11 w-11 place-items-center rounded-md border border-[#BFD9DB] bg-white text-[#31556A]"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </div>
-        <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          <div className="rounded-md border border-[#BFD9DB] bg-[#F8FCFC] px-3 py-2">
-            <p className="text-xs font-bold uppercase text-[#557084]">API</p>
-            <p className={`text-sm font-bold ${apiStatus === "online" ? "text-[#0D8F93]" : "text-[#B87500]"}`}>
-              {apiStatus === "checking" ? "Checking" : apiStatus === "online" ? "Online" : "Offline"}
-            </p>
-          </div>
-          <IconButton label="Forecast radar">
-            <Radar size={18} />
-          </IconButton>
-          <IconButton label="Notifications">
-            <Bell size={18} />
-          </IconButton>
-          <button className="hidden h-11 items-center gap-2 rounded-md bg-[#092C46] px-4 text-sm font-bold text-white sm:inline-flex">
-            <ShieldCheck size={17} />
-            {user.role}
-          </button>
-          <button
-            title="Sign out"
-            onClick={onLogout}
-            className="grid h-11 w-11 place-items-center rounded-md border border-[#BFD9DB] bg-white text-[#31556A]"
-          >
-            <LogOut size={18} />
-          </button>
+      </header>
+
+      <Modal title={dialog === "radar" ? "Forecast Radar" : "Notifications"} open={Boolean(dialog)} onClose={() => setDialog(null)}>
+        <div className="grid gap-3">
+          {dialog === "radar" ? (
+            <>
+              <InfoBlock title="High risk medicine" detail="Salbutamol Inhaler is above the stock-out threshold." />
+              <InfoBlock title="Recommended action" detail="Review transfer suggestions before evening demand rises." />
+            </>
+          ) : (
+            <>
+              <InfoBlock title="Reservation waiting" detail="One emergency reservation needs pharmacist confirmation." />
+              <InfoBlock title="Sync warning" detail="Union Med House inventory feed is delayed." />
+            </>
+          )}
         </div>
-      </div>
-    </header>
+      </Modal>
+    </>
   );
 }
 
@@ -145,5 +165,14 @@ export function SearchBox({ value, onChange }: { value: string; onChange: (value
         placeholder="Search medicine, pharmacy, category"
       />
     </div>
+  );
+}
+
+function InfoBlock({ title, detail }: { title: string; detail: string }) {
+  return (
+    <article className="rounded-md border border-[#BFD9DB] bg-[#F8FCFC] p-4">
+      <h3 className="font-bold text-[#092C46]">{title}</h3>
+      <p className="mt-1 text-sm leading-6 text-[#557084]">{detail}</p>
+    </article>
   );
 }

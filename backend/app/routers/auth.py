@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.services.demo_data import USERS
 
 
 router = APIRouter()
@@ -35,6 +36,9 @@ def login(payload: LoginRequest) -> LoginResponse:
         raise HTTPException(status_code=400, detail="Unsupported role")
     if len(payload.password.strip()) < 6:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    saved_user = USERS.get(payload.email.lower())
+    if not saved_user or saved_user["password"] != payload.password or saved_user["role"] != payload.role:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     settings = get_settings()
     expires_at = datetime.now(UTC) + timedelta(hours=8)
@@ -46,6 +50,7 @@ def login(payload: LoginRequest) -> LoginResponse:
         expires_at=expires_at,
         user={
             "name": "City Care Operator" if payload.role != "Patient" else "Emergency User",
+            "name": saved_user["name"],
             "email": payload.email,
             "role": payload.role,
         },
@@ -60,6 +65,16 @@ def signup(payload: SignupRequest) -> LoginResponse:
         raise HTTPException(status_code=400, detail="Name is required")
     if len(payload.password.strip()) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    if payload.email.lower() in USERS:
+        raise HTTPException(status_code=409, detail="User already exists")
+
+    USERS[payload.email.lower()] = {
+        "name": payload.name,
+        "email": payload.email,
+        "password": payload.password,
+        "phone": payload.phone or "",
+        "role": payload.role,
+    }
 
     settings = get_settings()
     expires_at = datetime.now(UTC) + timedelta(hours=8)

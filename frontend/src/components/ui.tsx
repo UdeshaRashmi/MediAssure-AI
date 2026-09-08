@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, LoaderCircle, MapPin } from "lucide-react";
+import { AlertTriangle, LoaderCircle, MapPin, X } from "lucide-react";
 import type { BadgeTone, InventoryItem } from "../types";
 
 export function Panel({
@@ -22,10 +22,12 @@ export function Panel({
   );
 }
 
-export function IconButton({ label, children }: { label: string; children: ReactNode }) {
+export function IconButton({ label, children, onClick }: { label: string; children: ReactNode; onClick?: () => void }) {
   return (
     <button
+      type="button"
       title={label}
+      onClick={onClick}
       className="grid h-11 w-11 place-items-center rounded-md border border-[#BFD9DB] bg-white text-[#0D8F93]"
     >
       {children}
@@ -243,6 +245,39 @@ export function LoadingState({ label }: { label: string }) {
     <div className="flex items-center gap-2 rounded-md border border-[#BFD9DB] bg-white px-3 py-2 text-sm font-bold text-[#31556A]">
       <LoaderCircle size={16} className="animate-spin text-[#0D8F93]" />
       {label}
+    </div>
+  );
+}
+
+export function Modal({
+  title,
+  open,
+  children,
+  onClose,
+}: {
+  title: string;
+  open: boolean;
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#092C46]/45 px-4 py-6">
+      <section className="w-full max-w-lg rounded-lg border border-[#BFD9DB] bg-white p-5 shadow-xl">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold text-[#092C46]">{title}</h2>
+          <button
+            type="button"
+            title="Close"
+            onClick={onClose}
+            className="grid h-9 w-9 place-items-center rounded-md border border-[#BFD9DB] text-[#31556A]"
+          >
+            <X size={17} />
+          </button>
+        </div>
+        {children}
+      </section>
     </div>
   );
 }
