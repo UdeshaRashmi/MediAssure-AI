@@ -16,6 +16,7 @@ class Inventory(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     pharmacy_id: Mapped[int] = mapped_column(ForeignKey("pharmacies.id"), index=True)
     medicine_id: Mapped[int] = mapped_column(ForeignKey("medicines.id"), index=True)
+    predicted_24h: Mapped[int | None] = mapped_column(Integer, nullable=True)
     current_stock: Mapped[int] = mapped_column(Integer, default=0)
     reserved_stock: Mapped[int] = mapped_column(Integer, default=0)
     reorder_level: Mapped[int] = mapped_column(Integer, default=0)

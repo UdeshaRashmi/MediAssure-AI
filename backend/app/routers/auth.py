@@ -1,15 +1,19 @@
 from datetime import UTC, datetime, timedelta
-from hashlib import pbkdf2_hmac
-from hmac import compare_digest
-from secrets import token_hex, token_urlsafe
-
-from fastapi import APIRouter, HTTPException
+from hashlib import sha256
+from secrets import token_urlsafe
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from app.core.access import ROLE_VALUES, current_user, user_data
+from app.core.security import DUMMY_HASH, hash_password, verify_password
+from app.db.session import get_db
+from app.models.session import AuthSession
+from app.models.user import User, UserRole
 from pydantic import BaseModel, Field, field_validator
 
-from app.services.demo_data import STORE_LOCK, USERS
-
 router = APIRouter()
-ALLOWED_ROLES = {"Patient", "Pharmacist", "Hospital Staff", "Admin"}
+ALLOWED_ROLES = set(ROLE_VALUES)
 
 
 class LoginRequest(BaseModel):
@@ -51,56 +55,46 @@ class SignupRequest(LoginRequest):
         return value
 
 
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_at: datetime
-    user: dict[str, str]
+
+def issue_session(db: Session, user: User) -> dict:
+    token = token_urlsafe(32)
+    expires = datetime.now(UTC) + timedelta(hours=8)
+    db.add(AuthSession(token_hash=sha256(token.encode()).hexdigest(), user_id=user.id, expires_at=expires))
+    db.commit()
+    return {"access_token": token, "token_type": "bearer", "expires_at": expires, "user": user_data(user)}
 
 
-def hash_password(password: str) -> str:
-    salt = token_hex(16)
-    digest = pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 600_000).hex()
-    return f"pbkdf2_sha256$600000${salt}${digest}"
+@router.post("/login")
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = db.scalar(select(User).where(User.email == payload.email))
+    valid = verify_password(payload.password, user.password_hash if user and user.password_hash else DUMMY_HASH)
+    if not user or not valid or ROLE_VALUES[payload.role] != user.role:
+        raise HTTPException(401, "Invalid credentials or selected role")
+    return issue_session(db, user)
 
 
-def verify_password(password: str, stored: str) -> bool:
+@router.post("/signup", status_code=201)
+def signup(payload: SignupRequest, db: Session = Depends(get_db)):
+    if payload.role == "Admin":
+        raise HTTPException(403, "Administrator accounts cannot be created through public signup")
+    user = User(name=payload.name, email=payload.email, phone=payload.phone,
+                password_hash=hash_password(payload.password), role=ROLE_VALUES[payload.role],
+                is_approved=payload.role == "Patient")
+    db.add(user)
     try:
-        algorithm, rounds, salt, expected = stored.split("$")
-        if algorithm != "pbkdf2_sha256":
-            return False
-        actual = pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), int(rounds)).hex()
-        return compare_digest(actual, expected)
-    except (ValueError, TypeError):
-        return False
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "User already exists") from None
+    return issue_session(db, user)
 
 
-def login_response(user: dict[str, str]) -> LoginResponse:
-    # Prototype session token. Authorization is not enforced by operational routes yet.
-    return LoginResponse(
-        access_token=token_urlsafe(32), expires_at=datetime.now(UTC) + timedelta(hours=8),
-        user={key: user[key] for key in ("name", "email", "role")},
-    )
+@router.get("/me")
+def me(user: User = Depends(current_user)):
+    return user_data(user)
 
 
-@router.post("/login", response_model=LoginResponse)
-def login(payload: LoginRequest) -> LoginResponse:
-    with STORE_LOCK:
-        user = USERS.get(payload.email)
-        stored = user["password_hash"] if user else hash_password("dummy-password")
-        valid = verify_password(payload.password, stored)
-        if not user or not valid or user["role"] != payload.role:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        return login_response(user)
-
-
-@router.post("/signup", response_model=LoginResponse, status_code=201)
-def signup(payload: SignupRequest) -> LoginResponse:
-    password_hash = hash_password(payload.password)
-    with STORE_LOCK:
-        if payload.email in USERS:
-            raise HTTPException(status_code=409, detail="User already exists")
-        user = {"name": payload.name, "email": payload.email,
-                "password_hash": password_hash, "phone": payload.phone or "", "role": payload.role}
-        USERS[payload.email] = user
-        return login_response(user)
+@router.post("/logout", status_code=204)
+def logout(user: User = Depends(current_user), db: Session = Depends(get_db), credentials=Depends(__import__("app.core.access", fromlist=["bearer"]).bearer)):
+    db.execute(delete(AuthSession).where(AuthSession.token_hash == sha256(credentials.credentials.encode()).hexdigest()))
+    db.commit()

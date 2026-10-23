@@ -19,3 +19,6 @@ __all__ = [
     "StockTransfer",
     "User",
 ]
+
+from app.models.session import AuthSession
+from app.models.audit import AuditRecord

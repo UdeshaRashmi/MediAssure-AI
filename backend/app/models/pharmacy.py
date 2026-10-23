@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Float, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -12,6 +12,9 @@ class Pharmacy(Base):
     __tablename__ = "pharmacies"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), unique=True, nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     name: Mapped[str] = mapped_column(String(160), index=True)
     registration_number: Mapped[str | None] = mapped_column(
         String(80),
