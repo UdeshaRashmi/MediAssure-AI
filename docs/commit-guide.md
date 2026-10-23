@@ -19,14 +19,38 @@
 15. AWS deployment configuration
 16. MLOps tracking with MLflow
 
-## Current Commit
+## Current Changes: Commit One Group at a Time
 
-Use this commit message for the current database migration scaffold:
+Run from the repository root. Review `git diff` before staging. These commands are reminders; the app does not create commits.
 
-```bash
-git add backend/alembic.ini backend/migrations backend/requirements.txt docs/data-model.md docs/commit-guide.md
-git commit -m "Add initial database migration"
+### 1. Persistent backend, authorization, and database setup
+
+After backend integration tests pass:
+
+```powershell
+git add backend docker-compose.yml
+git commit -m "Persist accounts and stock with role based API access"
 ```
+
+This includes the previous backend fixes, password/session handling, staff approval, ownership checks, real inventory/reservations, migrations, and tests.
+
+### 2. Real-data interfaces and Sinhala support
+
+After `npm.cmd run build` passes and the manual workflow has been reviewed:
+
+```powershell
+git add frontend/src
+git commit -m "Connect role based interfaces and add Sinhala support"
+```
+
+### 3. Running and testing documentation
+
+```powershell
+git add README.md docs/commit-guide.md
+git commit -m "Document real data testing and account approval setup"
+```
+
+After every commit, check `git status --short` to see what remains. Do not stage real records, local environments, or database exports.
 
 ## Good Commit Message Examples
 

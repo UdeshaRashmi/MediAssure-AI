@@ -14,7 +14,7 @@ export async function request<T>(path: string, method = "GET", body?: unknown): 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     if (response.status === 401 && !path.startsWith("/auth/login")) window.dispatchEvent(new Event("mediassure-session-expired"));
-    throw new Error(typeof payload.detail === "string" ? payload.detail : Array.isArray(payload.detail) ? payload.detail.map((item: { msg: string }) => item.msg).join("; ") : "Request failed. Please try again.");
+    throw new Error(typeof payload.detail === "string" ? payload.detail : Array.isArray(payload.detail) ? "Check the form fields and try again." : "Request failed. Please try again.");
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -55,9 +55,11 @@ export async function fetchPharmacyRecommendations(query: string, latitude: numb
   if (!query.trim()) return [];
   const medicines = await request<{ id: number; name: string; strength: string }[]>(`/medicines/search?query=${encodeURIComponent(query)}`);
   if (!medicines.length) return [];
-  const medicine = medicines[0];
-  const rows = await request<{ id: number; name: string; area: string; distance_km: number; travel_time_minutes: number; contact_number: string; current_stock: number; availability_confidence: number; emergency_rescue_score: number; verified: boolean }[]>(`/pharmacies/recommendations?medicine_id=${medicine.id}&latitude=${latitude}&longitude=${longitude}&quantity=${quantity}`);
-  return rows.map(i => ({ inventoryId: i.id, name: i.name, area: i.area, distance: `${i.distance_km.toFixed(1)} km`, eta: `${i.travel_time_minutes} min`, phone: i.contact_number, medicine: medicine.name, stock: i.current_stock, confidence: Math.round(i.availability_confidence * 100), rescueScore: Math.round(i.emergency_rescue_score), verified: i.verified }));
+  const results = await Promise.all(medicines.map(async medicine => {
+    const rows = await request<{ id: number; name: string; area: string; distance_km: number; travel_time_minutes: number; contact_number: string; current_stock: number; availability_confidence: number; emergency_rescue_score: number; verified: boolean }[]>(`/pharmacies/recommendations?medicine_id=${medicine.id}&latitude=${latitude}&longitude=${longitude}&quantity=${quantity}`);
+    return rows.map(i => ({ inventoryId: i.id, name: i.name, area: i.area, distance: `${i.distance_km.toFixed(1)} km`, eta: `${i.travel_time_minutes} min`, phone: i.contact_number, medicine: [medicine.name, medicine.strength].filter(Boolean).join(" "), stock: i.current_stock, confidence: Math.round(i.availability_confidence * 100), rescueScore: Math.round(i.emergency_rescue_score), verified: i.verified }));
+  }));
+  return results.flat().sort((a, b) => b.rescueScore - a.rescueScore);
 }
 export async function fetchNetworkPharmacies(): Promise<NetworkPharmacy[]> {
   const rows = await request<{ name: string; area: string; status: NetworkPharmacy["status"]; open_until: string; stock_health: number; urgent_gaps: number; last_sync: string; latitude: number; longitude: number }[]>("/pharmacies");

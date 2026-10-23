@@ -1,252 +1,168 @@
 # MediAssure AI
 
-AI-powered emergency medicine availability, predictive stock management, and smart pharmacy rebalancing system.
+Medicine availability and pharmacy coordination using React, FastAPI, and PostgreSQL/PostGIS. The application starts without sample accounts, medicines, pharmacies, reservations, notifications, or predictions. Enter your own records through the application.
 
-## Project Overview
+## What works
 
-MediAssure AI is a final-year research project concept for the healthcare and pharmacy domain. The system helps emergency users find pharmacies where a required medicine is most likely to still be available when they arrive, instead of recommending only the nearest pharmacy.
+- Persistent signup/login with salted password hashes and expiring, revocable bearer sessions.
+- API authorization and interfaces for Patient, Pharmacist, Hospital Staff, and Admin.
+- Administrator approval for professional accounts; public signup cannot create administrators.
+- Pharmacy registration through its first inventory entry; one pharmacy per operator account.
+- Add medicines and update real stock, reorder levels, opening hours, and open/closed availability.
+- Search by medicine, generic name, or category and compare available stock at open pharmacies.
+- Reservations with a 15-minute hold, pharmacy confirmation, pickup completion, cancellation, and expiry.
+- Row locks and database constraints protect reserved stock. Completing pickup reduces total stock; cancellation/expiry releases the hold.
+- Low-stock alerts and audit records derived from saved actions.
+- English/Sinhala interface switching on login and inside the application, with the preference saved in the browser. Entered names and medicine records remain as entered.
 
-The core innovation is:
+No startup script inserts sample data. Existing database records are preserved during migrations. Integration tests create temporary records inside rolled-back transactions; those records do not remain in the application.
 
-```text
-Predict -> Match -> Rebalance
-```
+## Roles and interfaces
 
-The system predicts possible medicine shortages, matches users with the most reliable nearby pharmacy, and recommends stock redistribution between pharmacies before shortages happen.
+| Role | Signup/access | Interface and data access |
+| --- | --- | --- |
+| Patient | Public signup; immediate access | Medicine finder, emergency request, own reservations, account settings |
+| Pharmacist | Public signup; Admin approval required | Dashboard, own pharmacy inventory, its reservations, network, alerts, audit/settings |
+| Hospital Staff | Public signup; Admin approval required | Medicine finder, hospital account reservations, pharmacy network, alerts, settings |
+| Admin | Created explicitly through the local command below | Network overview, stock management, all reservations, audit history, staff account approvals in Settings |
 
-## How It Works
+Selecting another role on the login form does not change the account's stored role. The API rejects unauthorized requests even if browser state or navigation is modified. Pharmacists cannot modify another operator's inventory or reservations. Patients and hospital accounts see only their own reservations.
 
-MediAssure AI has two main parts:
+## Run locally on Windows PowerShell
 
-- **Frontend web app**: A React dashboard with role-based user interfaces for patients, pharmacists, hospital staff, and admins.
-- **Backend API**: A FastAPI service that provides authentication, pharmacy recommendations, inventory records, reservations, forecasts, alerts, and audit data.
+Prerequisites: Python 3.11+, Node.js 20+, npm, and Docker Desktop with the Linux engine running.
 
-The frontend does not use local mock data for the application flow. After sign in or sign up, it loads project data from the backend API. If the backend is not running, the app shows a backend connection error.
-
-Role-based access is handled in the frontend using the authenticated user's backend role:
-
-| Role | Main UI Access |
-| --- | --- |
-| Patient | Emergency request, medicine finder, reservations, settings |
-| Pharmacist | Dashboard, inventory, forecasts, reservations, rebalancing, network, alerts, settings |
-| Hospital Staff | Emergency request, medicine finder, reservations, pharmacy network, alerts, settings |
-| Admin | Full operational access |
-
-## Main Features
-
-- Medicine search
-- Nearby pharmacy and hospital locator
-- Real-time medicine inventory availability
-- Emergency medicine request mode
-- Pharmacy inventory management
-- Low-stock alerts
-- Medicine demand forecasting
-- Medicine stock-out prediction
-- AI-based pharmacy recommendation
-- Availability confidence score
-- Emergency medicine rescue score
-- Predictive inventory management
-- Inter-pharmacy stock redistribution recommendations
-- Emergency medicine reservations
-- Pharmacist-verified generic or alternative medicine information
-- Cloud-based inventory synchronization
-- CI/CD with DevOps
-- ML model deployment and monitoring with MLOps
-
-## Tech Stack
-
-### Current Implementation
-
-| Layer | Technology |
-| --- | --- |
-| Frontend | React 19, TypeScript, Vite |
-| UI Styling | Tailwind CSS |
-| Icons | lucide-react |
-| Backend | FastAPI, Python |
-| API Validation | Pydantic |
-| ORM Models | SQLAlchemy |
-| Geospatial Model Support | GeoAlchemy2 |
-| Database Target | PostgreSQL with PostGIS |
-| Map UI | OpenStreetMap embed |
-| Dev Runtime | Node.js, npm, Uvicorn |
-
-### Planned / Research Stack
-
-| Layer | Technology |
-| --- | --- |
-| Mobile | React Native |
-| Cache | Redis |
-| ML Forecasting | Scikit-learn, XGBoost, LightGBM |
-| Rebalancing Optimization | Google OR-Tools |
-| Explainability | SHAP |
-| Cloud | AWS |
-| Containers | Docker |
-| Container Registry | Amazon ECR |
-| Deployment | AWS ECS Fargate |
-| ML Deployment | Amazon SageMaker |
-| Storage | Amazon S3 |
-| Authentication | AWS Cognito |
-| Notifications | Amazon SNS |
-| Monitoring | Amazon CloudWatch |
-| CI/CD | GitHub Actions |
-| Infrastructure | Terraform |
-| MLOps | MLflow, SageMaker |
-
-## Running Guide
-
-### Prerequisites
-
-Install these first:
-
-- Python 3.11+
-- Node.js 20+
-- npm
-- Docker Desktop with its Linux engine running
-
-### 1. Start PostgreSQL and Redis
-
-From the project root, with Docker Desktop running:
-
-```powershell
-docker compose up -d db redis
-```
-
-PostgreSQL is exposed on `localhost:5433` to avoid conflicting with a Windows PostgreSQL service on port 5432. Inside Docker, the database uses `db:5432` and Redis uses `redis:6379`.
-
-### 2. Start The Backend
+### 1. PostgreSQL and Redis
 
 From the project root:
 
-```bash
-cd backend
+```powershell
+cd "C:\My choices\MediAssure-AI"
+docker compose up -d db redis
+docker compose ps
+```
+
+PostgreSQL uses host port **5433**, avoiding a Windows PostgreSQL service on 5432. Local development credentials: database/user/password `mediassure`. Docker services communicate with `db:5432`; Redis is available on `localhost:6379`. Redis is provisioned but not yet used by application flows.
+
+### 2. Backend
+
+```powershell
+cd "C:\My choices\MediAssure-AI\backend"
+# First setup only; reuse an existing virtual environment.
 python -m venv .venv
-# First setup only; preserve an existing .env and update its DATABASE_URL port to 5433.
-Copy-Item .env.example .env
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m alembic upgrade head
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8001
 ```
 
-Backend URL:
+If `.env` already exists, ensure it contains:
 
-```text
-http://localhost:8001
+```dotenv
+DATABASE_URL=postgresql+psycopg://mediassure:mediassure@localhost:5433/mediassure
 ```
 
-API docs:
+Keep the terminal open. API: <http://localhost:8001/docs>. `/health` checks the server; `/health/ready` checks database connectivity. Operational routes require migrations to be at the latest revision.
 
-```text
-http://localhost:8001/docs
+### 3. Create your administrator
+
+In another terminal, from `backend`, run this once to create your own account:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.create_admin
 ```
 
-### 3. Start The Frontend
+Enter your actual name, email, password, and password confirmation. There are no default credentials. The command refuses to overwrite an existing email. It does not insert pharmacy or medicine records.
 
-Open a new terminal from the project root:
+### 4. Frontend
 
-```bash
-cd frontend
-npm install
-npm run dev
+In another terminal:
+
+```powershell
+cd "C:\My choices\MediAssure-AI\frontend"
+npm.cmd install
+npm.cmd run dev
 ```
 
-Frontend URL:
+Open the URL printed by Vite, normally <http://localhost:5173>. `npm.cmd` works when PowerShell blocks `npm.ps1`. The frontend API URL defaults to `http://localhost:8001`; set `VITE_API_BASE_URL` in `frontend/.env` to override it and restart Vite. Allowed frontend origins are configured by `CORS_ORIGINS` in `backend/.env`.
 
-```text
-http://localhost:5173
-```
+For later runs, start Docker services and run only the Uvicorn and Vite commands. Install dependencies again when dependency files change; run migrations when new revisions are added.
 
-If port `5173` is already in use, Vite will automatically choose another port such as:
+The full Docker development stack can also be started with `docker compose up --build -d`. The backend image includes migrations and applies them before starting Uvicorn. To create the administrator inside that backend container, run `docker compose exec backend python -m app.create_admin`. Use one backend runtime at a time to avoid port 8001 conflicts.
 
-```text
-http://localhost:5174
-```
+## Test with your own data
 
-### 4. Sign Up, Then Sign In
+1. Sign up as a Pharmacist using your own details. The account shows an approval screen.
+2. Sign out, sign in with your Admin account and the Admin role, open Settings, and approve the pharmacist. Hospital Staff follows the same approval process.
+3. Sign in as the Pharmacist, open Inventory, and choose Add medicine. Enter the actual medicine/generic name, strength, category, pharmacy name/address/phone, coordinates, total stock, and reorder level. Set the pharmacy to Open when appropriate. Save and verify the record appears.
+4. Add another medicine under the same pharmacy name. Use Update stock to change total stock; reserved quantities cannot be overwritten. Use Pharmacy availability to maintain opening hours and open/closed status.
+5. Sign up as a Patient in another browser profile or sign out first. Search for the medicine, enter coordinates or use the browser's location permission, and specify quantity. Search results include matching strengths and only open pharmacies with enough unreserved stock.
+6. Submit a reservation, then check the patient's Reservations page. In the pharmacist account, confirm it and complete pickup. Available stock decreases when reserved; total stock decreases when pickup is completed.
+7. Try requesting more units than available. The API must reject it. Cancel another reservation and confirm its held units are released. Active holds expire after 15 minutes; expiry is processed when inventory/reservation/recommendation data is next read.
+8. Restart the backend and sign in again. Your accounts, pharmacy, inventory, reservations, and audit records remain in PostgreSQL.
+9. Switch Language to Sinhala on the login page or app header. Test signup, inventory, search, and reservations in both languages. The preference survives refresh; medicine names remain unchanged.
+10. Verify a Patient cannot access stock-management/admin endpoints and that a second pharmacist cannot edit the first pharmacy's stock or reservations.
 
-Create an account first using the auth screen, then sign in with its email, password, and role. Available prototype roles:
+Sign out before changing accounts. The database volume is persistent; restarting containers does not erase your records.
 
-- Pharmacist
-- Hospital Staff
-- Patient
-- Admin
+## Verification
 
-Password rule:
+Run from `backend` after migrations, with PostgreSQL running:
 
-```text
-Choose a password with at least 6 non-padding characters. Sign in requires the password used at signup.
-```
-
-The selected role controls which pages appear in the sidebar.
-
-Current limitations: users, inventory, and reservations still use an in-memory prototype store and reset when the backend restarts. Migrations create the relational schema, but operational routes do not persist to it yet. Passwords are salted and hashed in memory. Tokens are prototype values; operational routes do not yet enforce authentication, resource ownership, or server-side roles, and public signup permits all prototype roles. Run this version locally, not as a production deployment.
-
-Recommendation distance uses coordinates; travel time and confidence are simple estimates, not live routing or trained predictions. Opening hours and verification are not established by inventory creation, so recommendations do not claim open or verified status.
-
-## API Endpoints
-
-Main backend endpoints:
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| GET | `/health` | API liveness check |
-| GET | `/health/ready` | Database connectivity check; returns 503 when unavailable |
-| POST | `/auth/login` | Role-based sign in |
-| POST | `/auth/signup` | Create a role-based demo account |
-| GET | `/dashboard/summary` | Dashboard metrics |
-| GET | `/inventory` | Pharmacy inventory |
-| GET | `/medicines` | Medicine list |
-| GET | `/medicines/search?query=salbutamol` | Medicine search |
-| GET | `/pharmacies` | Pharmacy network data |
-| GET | `/pharmacies/recommendations` | Emergency pharmacy recommendations |
-| GET | `/reservations` | Medicine reservations |
-| POST | `/reservations` | Create reservation |
-| GET | `/operations/forecasts` | Demand forecasting data |
-| GET | `/operations/transfers` | Stock rebalancing suggestions |
-| GET | `/operations/alerts` | Operational alerts |
-| GET | `/operations/verified-alternatives` | Pharmacist-verified alternative rules |
-| GET | `/operations/audit-events` | Governance audit events |
-
-## Project Structure
-
-```text
-MediAssure-AI/
-  backend/
-    app/
-      core/          # Settings and configuration
-      models/        # SQLAlchemy database models
-      routers/       # FastAPI route handlers
-      schemas/       # Pydantic API schemas
-      services/      # Shared backend data/services
-  frontend/
-    src/
-      components/    # Shared React UI components
-      pages/         # Role-based app pages
-      services/      # Backend API client
-      roleAccess.tsx # Role-to-page access rules
-```
-
-## Verification Commands
-
-Run these before committing:
-
-```bash
-cd backend
+```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe -m compileall app
+.\.venv\Scripts\python.exe -m compileall -q app
 ```
 
-```bash
-cd frontend
-npm run build
+The API integration suite uses the configured PostgreSQL database with an outer transaction rolled back after every test. It checks role restrictions, approvals, ownership, password hashing, persisted sessions, reservation transitions, stock release, search, and Unicode data. Test inserts can advance database sequences even though test rows are rolled back.
+
+From `frontend`:
+
+```powershell
+npm.cmd run build
 ```
 
-## Medical Safety Boundary
+## API overview
 
-This system must not independently prescribe medicines or automatically substitute prescription medicines. Generic or alternative medicine information should only be shown when it is pharmacist-verified or doctor-verified.
+| Routes | Access |
+| --- | --- |
+| `POST /auth/signup`, `POST /auth/login` | Public; no public Admin signup |
+| `GET /auth/me`, `POST /auth/logout` | Valid bearer session, including pending accounts |
+| `GET /admin/users`, `POST /admin/users/{id}/approve` | Approved Admin |
+| `GET/POST /inventory`, `PATCH /inventory/{id}` | Approved Pharmacist/Admin; ownership enforced |
+| `GET /medicines`, `GET /medicines/search` | Approved accounts |
+| `GET /pharmacies`, `GET /pharmacies/recommendations` | Approved accounts |
+| `PATCH /pharmacies/mine` | Approved Pharmacist/Admin; own pharmacy |
+| `GET /reservations` | Approved account; scoped by account/pharmacy/role |
+| `POST /reservations` | Approved Patient/Hospital Staff; inventory ID and quantity |
+| `PATCH /reservations/{id}` | Owner can cancel; pharmacy/Admin can confirm or complete |
+| `GET /dashboard/summary` | Approved Pharmacist/Admin |
+| `GET /operations/alerts` | Approved Pharmacist/Hospital Staff/Admin |
+| `GET /operations/audit-events` | Own events; Admin sees all |
 
-## Documentation
+Use the Authorize button in API docs with the token returned by login. Sessions expire after eight hours; logout revokes the current token.
 
-- [Architecture](docs/architecture.md)
-- [Research Scope](docs/research-scope.md)
-- [Data Model](docs/data-model.md)
-- [Commit Guide](docs/commit-guide.md)
+## Current boundaries
+
+Demand forecasting and stock transfer execution are not implemented. Their screens show empty states instead of sample predictions or successful-looking actions. Verified alternatives are empty until a real verification workflow exists. Distance is calculated from coordinates; travel time and stock-based ranking are estimates, not live navigation or trained medical/availability predictions. Opening status is manually maintained by the pharmacy. The system does not prescribe medicines or automatically substitute them.
+
+Batch/expiry tracking, sales-history entry, password recovery, notifications, and pharmacy registration/license verification are future work. A pharmacist account currently owns one pharmacy; Admin edits global stock but Add medicine registers/uses the Admin's own pharmacy. Sessions are stored in browser local storage; HTTPS and deployment hardening are needed for a public deployment.
+
+## Commit reminders
+
+Review and commit the changes in three groups: backend/database, frontend/Sinhala, then documentation. Exact commands are in [the commit guide](docs/commit-guide.md). Commits are not created automatically.
+
+## Structure
+
+```text
+backend/app/core/       Settings, password hashing, session and role checks
+backend/app/models/     SQLAlchemy records
+backend/app/routers/    API endpoints
+backend/app/services/   Stock/reservation serialization and expiry
+backend/migrations/     Database schema changes; no seed inserts
+backend/tests/          Transactional PostgreSQL API tests
+frontend/src/pages/     Role-specific screens
+frontend/src/services/  Authenticated API client
+frontend/src/locales/   Sinhala UI dictionary
+frontend/src/i18n.tsx   Language preference and translation context
+```

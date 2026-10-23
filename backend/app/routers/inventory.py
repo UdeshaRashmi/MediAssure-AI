@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
 from app.core.access import require_roles
 from app.db.session import get_db
 from app.models.inventory import Inventory
 from app.models.medicine import Medicine
 from app.models.pharmacy import Pharmacy
 from app.models.user import User, UserRole
-from app.schemas.demo import InventoryCreate
+from app.schemas.inventory import InventoryCreate
 from app.services.records import audit, expire_reservations, inventory_data, inventory_query
 
 router = APIRouter()
@@ -47,8 +48,8 @@ def create_inventory_item(payload: InventoryCreate, user: User = Depends(operato
             raise HTTPException(409, "Pharmacy setup changed; retry the request") from None
     elif pharmacy.name.casefold() != payload.pharmacy_name.casefold():
         raise HTTPException(409, "Use your registered pharmacy name")
-    medicine = db.scalar(select(Medicine).where(Medicine.name == payload.medicine,
-                            Medicine.strength == payload.strength, Medicine.generic_name == payload.generic))
+    medicine = db.scalar(select(Medicine).where(func.lower(Medicine.name) == payload.medicine.lower(),
+                            func.lower(Medicine.strength) == payload.strength.lower(), func.lower(Medicine.generic_name) == payload.generic.lower()))
     if medicine is None:
         medicine = Medicine(name=payload.medicine, generic_name=payload.generic, category=payload.category,
                             strength=payload.strength, requires_prescription=payload.requires_prescription)
@@ -65,8 +66,6 @@ def create_inventory_item(payload: InventoryCreate, user: User = Depends(operato
         raise HTTPException(409, "Medicine already exists at your pharmacy") from None
     return inventory_data(item)
 
-
-from pydantic import BaseModel, Field
 
 class StockUpdate(BaseModel):
     stock: int = Field(ge=0)

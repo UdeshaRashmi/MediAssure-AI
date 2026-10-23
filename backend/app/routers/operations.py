@@ -5,7 +5,7 @@ from app.core.access import approved_user, require_roles
 from app.db.session import get_db
 from app.models.audit import AuditRecord
 from app.models.user import User, UserRole
-from app.services.records import expire_reservations, inventory_data, inventory_query
+from app.services.records import expire_reservations, inventory_query
 
 router = APIRouter()
 operator = require_roles(UserRole.PHARMACIST, UserRole.ADMIN)

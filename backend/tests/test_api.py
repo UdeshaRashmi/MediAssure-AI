@@ -57,7 +57,7 @@ class ApiTests(unittest.TestCase):
         return asyncio.run(asgi_request(method, path, data, self.token if token is None else token))
 
     def signup(self, role="Patient", email="integration@example.test"):
-        return self.request("POST", "/auth/signup", {"name": "??????? User", "email": email,
+        return self.request("POST", "/auth/signup", {"name": "Integration User", "email": email,
                             "password": "secret123", "role": role})
 
     def admin(self):
@@ -74,7 +74,7 @@ class ApiTests(unittest.TestCase):
         return token
 
     def inventory(self, **changes):
-        data = {"medicine": "??????? Medicine", "generic": "Test generic", "stock": 3,
+        data = {"medicine": "Integration Medicine", "generic": "Test generic", "category": "Test category", "stock": 3,
                 "pharmacy_name": "Test Pharmacy", "area": "Real entered address", "contact_number": "0111234567",
                 "latitude": 6.9271, "longitude": 79.8612, "is_open": True, "reorder_level": 1}
         data.update(changes)
@@ -194,6 +194,14 @@ class ApiTests(unittest.TestCase):
         self.db.close()
         self.db = Session(bind=self.connection, join_transaction_mode="create_savepoint")
         self.assertEqual(self.request("GET", "/auth/me")[0], 200)
+
+    def test_unicode_names_round_trip_through_database(self):
+        name = "\u0d96\u0dc2\u0db0"
+        self.admin_token = self.admin(); self.token = self.operator()
+        status, row = self.inventory(medicine=name)
+        self.assertEqual(status, 201)
+        self.assertEqual(row["medicine"], name)
+        self.assertEqual(self.request("GET", "/inventory")[1][0]["medicine"], name)
 
     def test_readiness_hides_database_errors(self):
         with patch("app.routers.health.engine") as mocked:

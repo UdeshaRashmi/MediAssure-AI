@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
 from app.core.access import approved_user, require_roles
 from app.db.session import get_db
 from app.models.inventory import Inventory
@@ -52,7 +53,6 @@ def list_pharmacies(db: Session = Depends(get_db)):
     return rows
 
 
-from pydantic import BaseModel, Field
 class PharmacyUpdate(BaseModel):
     is_open: bool
     opening_hours: str = Field(default="", max_length=255)

@@ -75,7 +75,7 @@ export function App() {
     return () => { alive = false; };
   }, [search, user, revision]);
 
-  async function signOut() { try { await api.logoutWithApi(); } finally { setUser(null); setError(""); } }
+  async function signOut() { try { await api.logoutWithApi(); } catch { /* Local session is cleared even if the server is unavailable. */ } finally { setUser(null); setError(""); } }
   if (checkingSession) return <LoadingState label="Checking session..." />;
   if (!user) return <AuthPage onLogin={signedIn} />;
   if (!user.approved) return <main className="mx-auto grid max-w-xl gap-4 p-6"><LanguageSwitch /><h1 className="text-2xl font-bold">{t("Account awaiting approval")}</h1><p>{t("Your staff account has been created. An administrator must approve it before you can access this workspace.")}</p><p>{user.name} ? {t(user.role)}</p><button className="action" onClick={async () => { try { signedIn(await api.fetchCurrentUser()); } catch (error) { setError((error as Error).message); } }}>{t("Check approval")}</button><button className="secondary" onClick={signOut}>{t("Sign out")}</button>{error && <p role="alert">{t(error)}</p>}</main>;
