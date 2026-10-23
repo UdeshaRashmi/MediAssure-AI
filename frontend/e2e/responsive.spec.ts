@@ -9,6 +9,8 @@ async function workspace(page: Page) {
     const path = new URL(route.request().url()).pathname;
     let body: unknown;
     if (path === "/auth/me") body = { id: 1, name: "Staff member with a long display name", email: "averylongaccountaddress@example.test", approved: true, role: "Hospital Staff" };
+    else if (path === "/medicines/search") body = [{ id: 1, name: "Panadol", strength: "500 mg" }];
+    else if (path === "/pharmacies/recommendations") body = Number(new URL(route.request().url()).searchParams.get("quantity")) > 10 ? [] : [{ id: 1, name: "Ruhunu", area: "Colombo", distance_km: 1, travel_time_minutes: 3, contact_number: "0111234567", current_stock: 10, availability_confidence: .9, emergency_rescue_score: 90, verified: false, location_type: "Pharmacy", latitude: 7, longitude: 80, updated_at: "2026-10-23T08:00:00Z" }];
     else if (path === "/inventory") body = inventory;
     else if (path === "/pharmacies/mine") body = institution;
     else if (path === "/pharmacies") body = [{ ...institution, status: "Online", open_until: institution.opening_hours, stock_health: 80, urgent_gaps: 0, last_sync: "2026-10-23T08:00:00Z" }];
@@ -82,5 +84,73 @@ test("map filters, controls and details do not overlap or overflow", async ({ pa
   await noOverflow(page);
   await page.locator("header select").selectOption("si");
   await expect(page.locator("html")).toHaveAttribute("lang", "si");
+  await noOverflow(page);
+});
+
+
+test("search values can be edited and cleared without changing saved records", async ({ page }) => {
+  await workspace(page);
+  const writes: string[] = [];
+  page.on("request", request => { if (["POST", "PATCH", "DELETE"].includes(request.method()) && /^\/(inventory|reservations|pharmacies|auth|admin)(\/|$)/.test(new URL(request.url()).pathname)) writes.push(request.url()); });
+  const query = page.locator('input[name="query"]');
+  const quantity = page.locator('input[name="quantity"]');
+  const latitude = page.locator('input[name="latitude"]');
+  const longitude = page.locator('input[name="longitude"]');
+  const clear = page.getByRole("button", { name: "Clear search", exact: true });
+  const search = page.getByRole("button", { name: "Search pharmacies", exact: true });
+  await search.click();
+  await expect(query).toHaveAttribute("aria-invalid", "true");
+  await clear.click();
+  await expect(query).toHaveAttribute("aria-invalid", "false");
+  await query.fill("Panadol"); await quantity.fill("10"); await latitude.fill("7"); await longitude.fill("80");
+  await search.click(); await expect(page.getByRole("heading", { name: "Ruhunu", exact: true })).toBeVisible();
+  await quantity.fill("60");
+  await expect(page.getByRole("heading", { name: "Ruhunu", exact: true })).toHaveCount(0);
+  await search.click(); await expect(page.getByText("No matching medicine locations", { exact: true })).toBeVisible();
+  await quantity.fill("1"); await search.click();
+  await expect(page.getByRole("heading", { name: "Ruhunu", exact: true })).toBeVisible();
+  await clear.click();
+  await expect(query).toHaveValue(""); await expect(quantity).toHaveValue("1");
+  await expect(latitude).toHaveValue(""); await expect(longitude).toHaveValue("");
+  await expect(page.getByText("Ready to search", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ruhunu", exact: true })).toHaveCount(0);
+  expect(writes).toEqual([]);
+  await noOverflow(page);
+});
+
+
+test("stock rows expose edit and confirmed delete actions", async ({ page }) => {
+  await workspace(page);
+  let edited: Record<string, unknown> | undefined;
+  let deletions = 0;
+  await page.route("**/inventory/1", async route => {
+    if (route.request().method() === "PATCH") {
+      edited = route.request().postDataJSON();
+      await route.fulfill({ json: {} });
+    } else if (route.request().method() === "DELETE") {
+      deletions++;
+      await route.fulfill({ status: 204 });
+    } else await route.continue();
+  });
+  await navigate(page, "My medicine stock");
+  await page.getByRole("button", { name: "Edit", exact: true }).filter({ visible: true }).click();
+  const edit = page.getByRole("dialog", { name: "Edit medicine", exact: true });
+  await expect(edit).toBeVisible();
+  await edit.locator('input[name="medicine"]').fill("Panadol");
+  await edit.locator('input[name="stock"]').fill("42");
+  await edit.getByRole("button", { name: "Save stock", exact: true }).click();
+  await expect(edit).not.toBeVisible();
+  expect(edited?.medicine).toBe("Panadol");
+  expect(edited?.stock).toBe(42);
+  await page.getByRole("button", { name: "Delete", exact: true }).filter({ visible: true }).click();
+  const confirmation = page.getByRole("dialog", { name: "Delete medicine", exact: true });
+  await expect(confirmation).toBeVisible();
+  expect(deletions).toBe(0);
+  await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(deletions).toBe(0);
+  await page.getByRole("button", { name: "Delete", exact: true }).filter({ visible: true }).click();
+  await confirmation.getByRole("button", { name: "Delete medicine", exact: true }).click();
+  await expect(confirmation).not.toBeVisible();
+  expect(deletions).toBe(1);
   await noOverflow(page);
 });

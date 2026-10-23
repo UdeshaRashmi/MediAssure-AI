@@ -237,5 +237,19 @@
   "Some locations have missing coordinates or lie outside this map area.": "සමහර ස්ථානවල ඛණ්ඩාංක නොමැති අතර හෝ ඒවා මෙම සිතියම් ප්‍රදේශයෙන් පිටත පිහිටා ඇත.",
   "Medicine location not found": "ඖෂධ ලබාගැනීමේ ස්ථානය හමු නොවීය",
   "Navigation": "මෙනුව",
-  "Close menu": "මෙනුව වසන්න"
+  "Close menu": "මෙනුව වසන්න",
+  "Clear search": "සෙවුම හිස් කරන්න",
+  "Ready to search": "සෙවීමට සූදානම්",
+  "Enter or edit the medicine, quantity, and location, then select Search pharmacies.": "ඖෂධය, ප්‍රමාණය සහ ස්ථානය ඇතුළත් කර හෝ වෙනස් කර ඖෂධසැල් සොයන්න තෝරන්න.",
+  "Edit": "සංස්කරණය",
+  "Delete": "මකන්න",
+  "Actions": "ක්‍රියා",
+  "Cancel": "අවලංගු කරන්න",
+  "Edit medicine": "ඖෂධ තොරතුරු සංස්කරණය",
+  "Delete medicine": "ඖෂධය මකන්න",
+  "Deleting...": "මකමින්...",
+  "Medicine removed from your stock": "ඖෂධය ඔබේ තොගයෙන් ඉවත් කළා",
+  "Remove this medicine from your institution stock? Reservation history will be kept.": "මෙම ඖෂධය ඔබේ ආයතනයේ තොගයෙන් ඉවත් කරන්නද? වෙන්කිරීම් ඉතිහාසය සුරැකේ.",
+  "Complete or cancel active reservations before deleting stock": "තොගය මැකීමට පෙර සක්‍රිය වෙන්කිරීම් සම්පූර්ණ කරන්න හෝ අවලංගු කරන්න",
+  "Complete or cancel active reservations before changing medicine details": "ඖෂධ තොරතුරු වෙනස් කිරීමට පෙර සක්‍රිය වෙන්කිරීම් සම්පූර්ණ කරන්න හෝ අවලංගු කරන්න"
 }

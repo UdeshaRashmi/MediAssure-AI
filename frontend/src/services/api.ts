@@ -36,12 +36,13 @@ export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   const s = await request<{ active_medicines: number; low_stock_risk: number; pending_reservations: number; transfer_suggestions: number; api_mode: string }>("/dashboard/summary");
   return { activeMedicines: s.active_medicines, lowStockRisk: s.low_stock_risk, pendingReservations: s.pending_reservations, transferSuggestions: s.transfer_suggestions, apiMode: s.api_mode };
 }
-type RawInventory = { id: number; pharmacy_name: string; medicine: string; generic: string; category: string; stock: number; reserved: number; reorder_level: number; predicted_24h: number; status: InventoryItem["status"]; risk: InventoryItem["risk"]; updated: string };
+type RawInventory = { medicine_name?: string; strength?: string; requires_prescription?: boolean; id: number; pharmacy_name: string; medicine: string; generic: string; category: string; stock: number; reserved: number; reorder_level: number; predicted_24h: number; status: InventoryItem["status"]; risk: InventoryItem["risk"]; updated: string };
 export async function fetchInventory(): Promise<InventoryItem[]> {
-  return (await request<RawInventory[]>("/inventory")).map(i => ({ ...i, pharmacyName: i.pharmacy_name, reorderLevel: i.reorder_level, predicted24h: i.predicted_24h }));
+  return (await request<RawInventory[]>("/inventory")).map(i => ({ ...i, medicineName: i.medicine_name, requiresPrescription: i.requires_prescription, pharmacyName: i.pharmacy_name, reorderLevel: i.reorder_level, predicted24h: i.predicted_24h }));
 }
 export function createInventory(body: Record<string, unknown>) { return request("/inventory", "POST", body); }
-export function updateInventory(id: number, stock: number, reorder_level: number) { return request(`/inventory/${id}`, "PATCH", { stock, reorder_level }); }
+export function updateInventory(id: number, body: Record<string, unknown>) { return request(`/inventory/${id}`, "PATCH", body); }
+export function deleteInventory(id: number) { return request(`/inventory/${id}`, "DELETE"); }
 export function fetchMyLocation() { return request<MedicineLocation | null>("/pharmacies/mine"); }
 export function updateLocation(body: Record<string, unknown>) { return request<MedicineLocation>("/pharmacies/mine", "PATCH", body); }
 

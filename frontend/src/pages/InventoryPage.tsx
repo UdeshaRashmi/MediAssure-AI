@@ -3,13 +3,14 @@ import { useEffect, useState, type FormEvent } from "react";
 import type { InventoryItem, MedicineLocation, SessionUser } from "../types";
 import { EmptyState, InventoryTable, LoadingState, Modal, Panel } from "../components/ui";
 import { ValidatedForm, ValidatedInput } from "../components/ValidatedForm";
-import { createInventory, fetchMyLocation, updateInventory, updateLocation } from "../services/api";
+import { createInventory, deleteInventory, fetchMyLocation, updateInventory, updateLocation } from "../services/api";
 import { useI18n } from "../i18n";
 import { MAX_STOCK } from "../validation";
 
 export function InventoryPage({ items, user, onChanged }: { items: InventoryItem[]; user: SessionUser; onChanged: () => void }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState<InventoryItem | null>(null);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [location, setLocation] = useState<MedicineLocation | null>(null);
   const [locationLoading, setLocationLoading] = useState(true);
@@ -30,7 +31,11 @@ export function InventoryPage({ items, user, onChanged }: { items: InventoryItem
     event.preventDefault(); setBusy(true); setMessage("");
     const data = new FormData(event.currentTarget);
     try {
-      if (editing) await updateInventory(editing.id, Number(data.get("stock")), Number(data.get("reorder_level")));
+      if (editing) await updateInventory(editing.id, {
+        medicine: data.get("medicine"), generic: data.get("generic"), strength: data.get("strength"),
+        category: data.get("category"), requires_prescription: data.get("requires_prescription") === "true",
+        stock: Number(data.get("stock")), reorder_level: Number(data.get("reorder_level")),
+      });
       else {
         const payload = Object.fromEntries([...data.entries()].map(([key, value]) => [key,
           ["stock", "reorder_level", "latitude", "longitude"].includes(key) ? Number(value) :
@@ -43,6 +48,16 @@ export function InventoryPage({ items, user, onChanged }: { items: InventoryItem
         await createInventory(payload);
       }
       setOpen(false); setEditing(null); setMessage("Stock saved successfully"); onChanged();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Request failed. Please try again."); }
+    finally { setBusy(false); }
+  }
+
+  async function removeStock() {
+    if (!deleting) return;
+    setBusy(true); setMessage("");
+    try {
+      await deleteInventory(deleting.id);
+      setDeleting(null); setMessage("Medicine removed from your stock"); onChanged();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Request failed. Please try again."); }
     finally { setBusy(false); }
   }
@@ -65,8 +80,10 @@ export function InventoryPage({ items, user, onChanged }: { items: InventoryItem
       <p className="mb-4 text-sm">{t("Keep your available medicine stock up to date so people can find the correct pickup location.")}</p>
       {locationLoading && <LoadingState label="Loading data..." />}
       {location && <p className="mb-3 font-bold">{t(location.location_type)}: {location.name}</p>}
-      {items.length ? <InventoryTable items={items} /> : <EmptyState title="No inventory records" detail="Add your first medicine and your institution details to start sharing availability." />}
-      <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">{items.map(item => <button className="secondary" key={item.id} disabled={busy} onClick={() => { setEditing(item); setMessage(""); setOpen(true); }}>{t("Update stock")}: {item.medicine}</button>)}</div>
+      {items.length ? <InventoryTable items={items} actions={item => <>
+        <button className="secondary" disabled={busy} onClick={() => { setEditing(item); setMessage(""); setOpen(true); }}>{t("Edit")}</button>
+        <button className="secondary text-red-700" disabled={busy} onClick={() => { setDeleting(item); setMessage(""); }}>{t("Delete")}</button>
+      </>} /> : <EmptyState title="No inventory records" detail="Add your first medicine and your institution details to start sharing availability." />}
     </Panel>
     {message && <p role="status">{t(message)}</p>}
     {location && <Panel title="Medicine pickup location">
@@ -76,18 +93,27 @@ export function InventoryPage({ items, user, onChanged }: { items: InventoryItem
         <button className="action" disabled={busy}>{t("Save location details")}</button>
       </ValidatedForm>
     </Panel>}
-    <Modal title={editing ? "Update stock" : "Add medicine"} open={open} onClose={() => { if (!busy) setOpen(false); }}>
+    <Modal title={editing ? "Edit medicine" : "Add medicine"} open={open} onClose={() => { if (!busy) setOpen(false); }}>
       <ValidatedForm key={`${open}-${editing?.id ?? "new"}`} onSubmit={save} className="grid gap-4">
-        {!editing && <>
-          {[["medicine", "Medicine", 160], ["generic", "Generic name", 160], ["strength", "Strength", 80], ["category", "Category", 100]].map(([name, label, max]) => <label key={name}>{t(String(label))}<ValidatedInput className="field" name={String(name)} maxLength={Number(max)} required={name !== "strength"} /></label>)}
-          <label>{t("Prescription required")}<select className="field" name="requires_prescription"><option value="true">{t("Yes")}</option><option value="false">{t("No")}</option></select></label>
-          {!location && <LocationFields registration hospital={user.role === "Hospital Staff"} />}
-        </>}
+        <>
+          {[["medicine", "Medicine", 160], ["generic", "Generic name", 160], ["strength", "Strength", 80], ["category", "Category", 100]].map(([name, label, max]) => <label key={name}>{t(String(label))}<ValidatedInput className="field" name={String(name)} maxLength={Number(max)} defaultValue={editing ? ({ medicine: editing.medicineName ?? editing.medicine, generic: editing.generic, strength: editing.strength ?? "", category: editing.category } as Record<string, string>)[String(name)] : ""} required={name !== "strength"} /></label>)}
+          <label>{t("Prescription required")}<select className="field" name="requires_prescription" defaultValue={editing?.requiresPrescription === false ? "false" : "true"}><option value="true">{t("Yes")}</option><option value="false">{t("No")}</option></select></label>
+          {!editing && !location && <LocationFields registration hospital={user.role === "Hospital Staff"} />}
+        </>
         <label>{t("Total stock")}<ValidatedInput className="field" name="stock" type="number" max={MAX_STOCK} min={editing?.reserved ?? 0} defaultValue={editing?.stock ?? 0} required /></label>
         <label>{t("Reorder level")}<ValidatedInput className="field" name="reorder_level" type="number" max={MAX_STOCK} min={0} defaultValue={editing?.reorderLevel ?? 0} required /></label>
         <button className="action" disabled={busy}>{t(busy ? "Saving..." : "Save stock")}</button>
         {message && <p role="alert">{t(message)}</p>}
       </ValidatedForm>
+    </Modal>
+    <Modal title="Delete medicine" open={Boolean(deleting)} onClose={() => { if (!busy) { setDeleting(null); setMessage(""); } }}>
+      <p className="mb-3 font-bold">{deleting?.medicine}</p>
+      <p className="mb-4">{t("Remove this medicine from your institution stock? Reservation history will be kept.")}</p>
+      <div className="flex flex-wrap gap-2">
+        <button className="secondary" disabled={busy} onClick={() => { setDeleting(null); setMessage(""); }}>{t("Cancel")}</button>
+        <button className="action" disabled={busy} onClick={removeStock}>{t(busy ? "Deleting..." : "Delete medicine")}</button>
+      </div>
+      {message && <p className="mt-3" role="alert">{t(message)}</p>}
     </Modal>
   </div>;
 }

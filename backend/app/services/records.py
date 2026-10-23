@@ -36,7 +36,8 @@ def inventory_data(item: Inventory):
     status = "Low" if available <= item.reorder_level else "Watch" if available <= item.reorder_level * 2 else "Healthy"
     return {"id": item.id, "medicine_id": item.medicine_id, "pharmacy_id": item.pharmacy_id,
             "pharmacy_name": item.pharmacy.name, "medicine": " ".join(filter(None, (item.medicine.name, item.medicine.strength))),
-            "generic": item.medicine.generic_name, "category": item.medicine.category or "",
+            "medicine_name": item.medicine.name, "strength": item.medicine.strength or "",
+            "requires_prescription": item.medicine.requires_prescription, "generic": item.medicine.generic_name, "category": item.medicine.category or "",
             "stock": item.current_stock, "reserved": item.reserved_stock, "reorder_level": item.reorder_level,
             "predicted_24h": item.predicted_24h or 0, "status": status,
             "risk": {"Low": "High", "Watch": "Medium", "Healthy": "Low"}[status],

@@ -16,6 +16,9 @@ export type BadgeTone = "teal" | "danger" | "amber";
 export type InventoryItem = {
   id: number;
   pharmacyName: string;
+  medicineName?: string;
+  strength?: string;
+  requiresPrescription?: boolean;
   medicine: string;
   generic: string;
   category: string;

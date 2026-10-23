@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select, func
 from geoalchemy2 import WKTElement
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from app.core.access import require_roles
 from app.db.session import get_db
 from app.models.inventory import Inventory
@@ -71,6 +71,12 @@ def create_inventory_item(payload: InventoryCreate, user: User = Depends(operato
 
 
 class StockUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    medicine: str | None = Field(default=None, min_length=1, max_length=160)
+    generic: str | None = Field(default=None, min_length=1, max_length=160)
+    strength: str | None = Field(default=None, max_length=80)
+    category: str | None = Field(default=None, min_length=1, max_length=100)
+    requires_prescription: bool | None = None
     stock: int = Field(ge=0, le=MAX_STOCK, strict=True)
     reorder_level: int = Field(ge=0, le=MAX_STOCK, strict=True)
 
@@ -83,7 +89,41 @@ def update_stock(inventory_id: int, payload: StockUpdate, user: User = Depends(o
         raise HTTPException(404, "Inventory not found")
     if payload.stock < item.reserved_stock:
         raise HTTPException(409, "Stock cannot be less than reserved units")
+    current = item.medicine
+    details = dict(name=payload.medicine if payload.medicine is not None else current.name,
+                   generic_name=payload.generic if payload.generic is not None else current.generic_name,
+                   strength=payload.strength if payload.strength is not None else current.strength,
+                   category=payload.category if payload.category is not None else current.category,
+                   requires_prescription=payload.requires_prescription if payload.requires_prescription is not None else current.requires_prescription)
+    if any(getattr(current, key) != value for key, value in details.items()):
+        if item.reserved_stock:
+            raise HTTPException(409, "Complete or cancel active reservations before changing medicine details")
+        # Shared medicine records must not change another supplier's stock or reservation history.
+        medicine = db.scalar(select(Medicine).filter_by(**details).order_by(Medicine.id))
+        if medicine is None:
+            medicine = Medicine(**details)
+            db.add(medicine)
+            db.flush()
+        duplicate = db.scalar(select(Inventory.id).where(Inventory.pharmacy_id == item.pharmacy_id,
+                              Inventory.medicine_id == medicine.id, Inventory.id != item.id))
+        if duplicate:
+            raise HTTPException(409, "Medicine already exists at your institution")
+        item.medicine = medicine
     item.current_stock, item.reorder_level = payload.stock, payload.reorder_level
     audit(db, user, "Updated stock", item.medicine.name)
     db.commit()
     return inventory_data(item)
+
+
+@router.delete("/{inventory_id}", status_code=204)
+def delete_inventory_item(inventory_id: int, user: User = Depends(operator), db: Session = Depends(get_db)):
+    expire_reservations(db)
+    item = db.scalar(inventory_query(user).where(Inventory.id == inventory_id).with_for_update(of=Inventory))
+    if item is None:
+        raise HTTPException(404, "Inventory not found")
+    if item.reserved_stock:
+        raise HTTPException(409, "Complete or cancel active reservations before deleting stock")
+    audit(db, user, "Deleted inventory", item.medicine.name)
+    db.delete(item)
+    db.commit()
+    return Response(status_code=204)

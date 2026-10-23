@@ -308,6 +308,39 @@ class ApiTests(unittest.TestCase):
         _, patient = self.signup(); self.token = patient["access_token"]
         self.assertEqual(self.request("GET", "/pharmacies/2147483647/stock")[0], 404)
 
+    def test_inventory_edit_and_delete_permissions_and_history(self):
+        self.setup_stock()
+        path = f"/inventory/{self.stock['id']}"
+        patch_data = {"medicine": "Corrected medicine", "generic": "Corrected generic", "strength": "10 mg",
+                      "category": "Corrected category", "requires_prescription": False, "stock": 8, "reorder_level": 2}
+        self.assertEqual(self.request("PATCH", path, patch_data)[0], 403)
+        self.assertEqual(self.request("DELETE", path)[0], 403)
+        other = self.operator("other-edit@example.test")
+        self.assertEqual(self.request("PATCH", path, patch_data, token=other)[0], 404)
+        self.assertEqual(self.request("DELETE", path, token=other)[0], 404)
+        # A second supplier shares the original medicine; editing must leave it intact.
+        self.token = other
+        _, other_stock = self.inventory()
+        status, changed = self.request("PATCH", path, patch_data, token=self.pharmacist)
+        self.assertEqual(status, 200)
+        self.assertEqual(changed["medicine"], "Corrected medicine 10 mg")
+        self.assertFalse(changed["requires_prescription"])
+        self.assertEqual(self.request("GET", "/inventory")[1][0]["medicine"], "Integration Medicine")
+        self.assertEqual(self.request("DELETE", path, token=self.pharmacist)[0], 204)
+        self.assertEqual(self.request("DELETE", path, token=self.pharmacist)[0], 404)
+        self.assertEqual(self.request("GET", "/inventory")[1][0]["id"], other_stock["id"])
+
+    def test_inventory_active_reservations_protect_delete_and_medicine_changes(self):
+        self.setup_stock()
+        _, reservation = self.reserve()
+        path = f"/inventory/{self.stock['id']}"
+        self.assertEqual(self.request("DELETE", path, token=self.pharmacist)[0], 409)
+        self.assertEqual(self.request("PATCH", path, {"medicine": "Changed", "stock": 3, "reorder_level": 1}, token=self.pharmacist)[0], 409)
+        self.assertEqual(self.request("PATCH", path, {"stock": 9, "reorder_level": 1}, token=self.pharmacist)[0], 200)
+        self.request("PATCH", f"/reservations/{reservation['id']}", {"status": "cancelled"})
+        self.assertEqual(self.request("DELETE", path, token=self.pharmacist)[0], 204)
+        self.assertEqual(self.request("GET", "/reservations")[1][0]["status"], "Cancelled")
+
     def test_readiness_hides_database_errors(self):
         with patch("app.routers.health.engine") as mocked:
             mocked.connect.side_effect = OperationalError("connect", {}, Exception("private"))

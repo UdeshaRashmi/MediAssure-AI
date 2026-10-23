@@ -607,6 +607,8 @@ Each supplier account currently owns one institution. Shared access for multiple
 6. Submit a reservation and track it on **Reservations**.
 7. The supplying institution confirms the request and completes pickup when the medicine is collected.
 
+You can edit the search fields at any time and submit again. Editing clears the previous results so they cannot be mistaken for matches to the new inputs. **Clear search** empties the medicine and coordinates, resets quantity to `1`, and removes results and validation errors. This only resets the search form; it does not delete saved inventory or reservations.
+
 Hospital Staff can both maintain their own stock and request medicines from another institution. An outgoing request does not grant permission to confirm that other institution's reservation.
 
 ## Sri Lanka medicine map
@@ -701,7 +703,7 @@ Interactive request schemas are available at <http://localhost:8001/docs>. For p
 | GET | `/admin/users` | Admin account overview |
 | POST | `/admin/users/{id}/approve` | Admin staff approval |
 | GET, POST | `/inventory` | Supplier's own stock; Admin retains global management |
-| PATCH | `/inventory/{id}` | Authorized stock/reorder-level update |
+| PATCH, DELETE | `/inventory/{id}` | Edit medicine details/stock or remove an owned stock entry; active reservations protect medicine details and deletion |
 | GET | `/medicines` | Approved accounts; medicine catalogue |
 | GET | `/medicines/search` | Approved accounts; name/generic/category search |
 | GET | `/pharmacies` | Approved accounts; registered institution locations |
@@ -852,3 +854,5 @@ This system does not independently prescribe medicines or automatically substitu
 - [Research scope](docs/research-scope.md)
 
 These documents provide supporting design and research context. The implemented-feature descriptions and setup instructions above describe the current application.
+
+Medicine stock rows include **Edit** and **Delete** actions on desktop and mobile. Edit opens the medicine details, total stock, and reorder level. Delete asks for confirmation and removes only that institution's stock entry, preserving medicine and reservation history. Complete or cancel active reservations before deleting or changing medicine details; stock quantity can still be updated provided it covers reserved units.
