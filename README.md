@@ -7,9 +7,9 @@ Medicine availability and pharmacy coordination using React, FastAPI, and Postgr
 - Persistent signup/login with salted password hashes and expiring, revocable bearer sessions.
 - API authorization and interfaces for Patient, Pharmacist, Hospital Staff, and Admin.
 - Administrator approval for professional accounts; public signup cannot create administrators.
-- Pharmacy registration through its first inventory entry; one pharmacy per operator account.
-- Add medicines and update real stock, reorder levels, opening hours, and open/closed availability.
-- Search by medicine, generic name, or category and compare available stock at open pharmacies.
+- Pharmacy/hospital registration through its first inventory entry; one institution per approved supplier account.
+- Pharmacists and Hospital Staff can add medicines and update their own institution stock, reorder levels, pickup address/phone/coordinates, opening hours, and open/closed availability.
+- Search by medicine, generic name, or category and compare available stock at open pharmacies and hospitals. Results show institution type, address, phone, a map link, available quantity, and stock update time.
 - Reservations with a 15-minute hold, pharmacy confirmation, pickup completion, cancellation, and expiry.
 - Row locks and database constraints protect reserved stock. Completing pickup reduces total stock; cancellation/expiry releases the hold.
 - Low-stock alerts and audit records derived from saved actions.
@@ -23,10 +23,10 @@ No startup script inserts sample data. Existing database records are preserved d
 | --- | --- | --- |
 | Patient | Public signup; immediate access | Medicine finder, emergency request, own reservations, account settings |
 | Pharmacist | Public signup; Admin approval required | Dashboard, own pharmacy inventory, its reservations, network, alerts, audit/settings |
-| Hospital Staff | Public signup; Admin approval required | Medicine finder, hospital account reservations, pharmacy network, alerts, settings |
+| Hospital Staff | Public signup; Admin approval required | Own hospital stock and pickup location, medicine finder, outgoing and incoming reservations, network, alerts, settings |
 | Admin | Created explicitly through the local command below | Network overview, stock management, all reservations, audit history, staff account approvals in Settings |
 
-Selecting another role on the login form does not change the account's stored role. The API rejects unauthorized requests even if browser state or navigation is modified. Pharmacists cannot modify another operator's inventory or reservations. Patients and hospital accounts see only their own reservations.
+Selecting another role on the login form does not change the account's stored role. The API rejects unauthorized requests even if browser state or navigation is modified. Pharmacists and Hospital Staff can list and update only their own institution inventory. Stock IDs are checked against the authenticated account on the server; changing an ID or browser navigation cannot grant write access to another institution. Patients see their own reservations. Hospital Staff see reservations they created and incoming reservations at their own hospital; they can confirm/complete only those supplied by their own hospital. Admin retains global oversight.
 
 ## Run locally on Windows PowerShell
 
@@ -88,20 +88,22 @@ Open the URL printed by Vite, normally <http://localhost:5173>. `npm.cmd` works 
 
 For later runs, start Docker services and run only the Uvicorn and Vite commands. Install dependencies again when dependency files change; run migrations when new revisions are added.
 
+No schema migration is needed for hospital stock support: the existing location table is reused and the displayed institution type comes from its owner's role.
+
 The full Docker development stack can also be started with `docker compose up --build -d`. The backend image includes migrations and applies them before starting Uvicorn. To create the administrator inside that backend container, run `docker compose exec backend python -m app.create_admin`. Use one backend runtime at a time to avoid port 8001 conflicts.
 
 ## Test with your own data
 
 1. Sign up as a Pharmacist using your own details. The account shows an approval screen.
 2. Sign out, sign in with your Admin account and the Admin role, open Settings, and approve the pharmacist. Hospital Staff follows the same approval process.
-3. Sign in as the Pharmacist, open Inventory, and choose Add medicine. Enter the actual medicine/generic name, strength, category, pharmacy name/address/phone, coordinates, total stock, and reorder level. Set the pharmacy to Open when appropriate. Save and verify the record appears.
-4. Add another medicine under the same pharmacy name. Use Update stock to change total stock; reserved quantities cannot be overwritten. Use Pharmacy availability to maintain opening hours and open/closed status.
-5. Sign up as a Patient in another browser profile or sign out first. Search for the medicine, enter coordinates or use the browser's location permission, and specify quantity. Search results include matching strengths and only open pharmacies with enough unreserved stock.
-6. Submit a reservation, then check the patient's Reservations page. In the pharmacist account, confirm it and complete pickup. Available stock decreases when reserved; total stock decreases when pickup is completed.
+3. Sign in as the approved Pharmacist or Hospital Staff, open My medicine stock, and choose Add medicine. Enter the actual medicine/generic name, strength, category, institution name/address/phone, coordinates, total stock, and reorder level. Set the institution to Open when appropriate. Save and verify the record appears.
+4. Add another medicine: the saved institution details are reused automatically. Use Update stock to change total stock; reserved quantities cannot be overwritten. Use Medicine pickup location to edit your address, coordinates, phone, opening hours, and open/closed status. Changes are visible in subsequent searches.
+5. Sign up as a Patient in another browser profile or sign out first. Search for the medicine, enter coordinates or use the browser's location permission, and specify quantity. Search results include matching strengths and only open pharmacies/hospitals with enough unreserved stock.
+6. Submit a reservation, then check the patient's Reservations page. In the supplying Pharmacist/Hospital Staff account, confirm it and complete pickup. Available stock decreases when reserved; total stock decreases when pickup is completed.
 7. Try requesting more units than available. The API must reject it. Cancel another reservation and confirm its held units are released. Active holds expire after 15 minutes; expiry is processed when inventory/reservation/recommendation data is next read.
 8. Restart the backend and sign in again. Your accounts, pharmacy, inventory, reservations, and audit records remain in PostgreSQL.
 9. Switch Language to Sinhala on the login page or app header. Test signup, inventory, search, and reservations in both languages. The preference survives refresh; medicine names remain unchanged.
-10. Verify a Patient cannot access stock-management/admin endpoints and that a second pharmacist cannot edit the first pharmacy's stock or reservations.
+10. Verify a Patient cannot access stock-management/admin endpoints and that another pharmacist or hospital account cannot edit the first institution's stock or confirm its reservations. Test a hospital-to-pharmacy attempt and a hospital-to-hospital attempt.
 
 Sign out before changing accounts. The database volume is persistent; restarting containers does not erase your records.
 
@@ -136,13 +138,13 @@ npm.cmd run build
 | `POST /auth/signup`, `POST /auth/login` | Public; no public Admin signup |
 | `GET /auth/me`, `POST /auth/logout` | Valid bearer session, including pending accounts |
 | `GET /admin/users`, `POST /admin/users/{id}/approve` | Approved Admin |
-| `GET/POST /inventory`, `PATCH /inventory/{id}` | Approved Pharmacist/Admin; ownership enforced |
+| `GET/POST /inventory`, `PATCH /inventory/{id}` | Approved Pharmacist/Hospital Staff; own stock only. Admin retains global management |
 | `GET /medicines`, `GET /medicines/search` | Approved accounts |
 | `GET /pharmacies`, `GET /pharmacies/recommendations` | Approved accounts |
-| `PATCH /pharmacies/mine` | Approved Pharmacist/Admin; own pharmacy |
+| `GET/PATCH /pharmacies/mine` | Approved Pharmacist/Hospital Staff/Admin; own institution profile only |
 | `GET /reservations` | Approved account; scoped by account/pharmacy/role |
 | `POST /reservations` | Approved Patient/Hospital Staff; inventory ID and quantity |
-| `PATCH /reservations/{id}` | Owner can cancel; pharmacy/Admin can confirm or complete |
+| `PATCH /reservations/{id}` | Requester can cancel; supplying institution/Admin can confirm or complete |
 | `GET /dashboard/summary` | Approved Pharmacist/Admin |
 | `GET /operations/alerts` | Approved Pharmacist/Hospital Staff/Admin |
 | `GET /operations/audit-events` | Own events; Admin sees all |
@@ -153,7 +155,7 @@ Use the Authorize button in API docs with the token returned by login. Sessions 
 
 Demand forecasting and stock transfer execution are not implemented. Their screens show empty states instead of sample predictions or successful-looking actions. Verified alternatives are empty until a real verification workflow exists. Distance is calculated from coordinates; travel time and stock-based ranking are estimates, not live navigation or trained medical/availability predictions. Opening status is manually maintained by the pharmacy. The system does not prescribe medicines or automatically substitute them.
 
-Batch/expiry tracking, sales-history entry, password recovery, notifications, and pharmacy registration/license verification are future work. A pharmacist account currently owns one pharmacy; Admin edits global stock but Add medicine registers/uses the Admin's own pharmacy. Sessions are stored in browser local storage; HTTPS and deployment hardening are needed for a public deployment.
+Batch/expiry tracking, sales-history entry, password recovery, notifications, and pharmacy registration/license verification are future work. Each Pharmacist/Hospital Staff account currently owns one institution (shared multi-staff institution accounts are not implemented); Admin edits global stock but Add medicine registers/uses the Admin's own pharmacy. Sessions are stored in browser local storage; HTTPS and deployment hardening are needed for a public deployment.
 
 ## Commit reminders
 

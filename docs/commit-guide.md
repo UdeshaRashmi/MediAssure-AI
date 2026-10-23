@@ -52,6 +52,17 @@ git commit -m "Document real data testing and account approval setup"
 
 After every commit, check `git status --short` to see what remains. Do not stage real records, local environments, or database exports.
 
+## Own Institution Stock Update
+
+After backend tests and frontend tests/build pass, commit this feature separately:
+
+```powershell
+git add backend/app backend/tests/test_api.py frontend/src frontend/tests/roleAccess.test.cjs README.md docs/commit-guide.md
+git commit -m "Add hospital stock management with institution ownership checks"
+```
+
+This adds Hospital Staff stock entry, institution pickup details, pharmacy/hospital search results, and regression tests that reject writes to other institutions.
+
 ## Good Commit Message Examples
 
 ```bash
