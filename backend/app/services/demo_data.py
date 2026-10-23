@@ -1,3 +1,5 @@
+from threading import RLock
+
 from app.schemas.demo import (
     AuditEvent,
     ForecastItem,
@@ -13,6 +15,7 @@ from app.schemas.demo import (
 
 # In-memory prototype stores. These start empty so the UI only shows data that
 # was created through backend actions during the current server run.
+STORE_LOCK = RLock()
 USERS: dict[str, dict[str, str]] = {}
 INVENTORY: list[InventoryItem] = []
 RECOMMENDATIONS: list[PharmacyRecommendation] = []

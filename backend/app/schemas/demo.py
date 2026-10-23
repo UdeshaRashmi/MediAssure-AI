@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class MedicineSearchResult(BaseModel):
@@ -26,6 +26,11 @@ class PharmacyRecommendation(BaseModel):
 
 
 class InventoryItem(BaseModel):
+    pharmacy_name: str = ""
+    area: str = "Colombo"
+    contact_number: str = ""
+    latitude: float = 6.9271
+    longitude: float = 79.8612
     medicine: str
     generic: str
     category: str
@@ -39,18 +44,26 @@ class InventoryItem(BaseModel):
 
 
 class InventoryCreate(BaseModel):
-    medicine: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    medicine: str = Field(min_length=1, max_length=160)
     generic: str = "Unknown"
     category: str = "General"
     stock: int = Field(gt=0)
     reserved: int = Field(default=0, ge=0)
     reorder_level: int = Field(default=10, ge=0)
     predicted_24h: int = Field(default=0, ge=0)
-    pharmacy_name: str
+    pharmacy_name: str = Field(min_length=1, max_length=160)
     area: str = "Colombo"
     contact_number: str = "+94 11 000 0000"
-    latitude: float = 6.9271
-    longitude: float = 79.8612
+    latitude: float = Field(default=6.9271, ge=-90, le=90)
+    longitude: float = Field(default=79.8612, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def validate_reserved_stock(self) -> "InventoryCreate":
+        if self.reserved > self.stock:
+            raise ValueError("Reserved stock cannot exceed total stock")
+        return self
 
 
 class ReservationItem(BaseModel):
@@ -63,10 +76,12 @@ class ReservationItem(BaseModel):
 
 
 class ReservationCreate(BaseModel):
-    patient: str = "Emergency user"
-    medicine: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    patient: str = Field(default="Emergency user", min_length=1, max_length=120)
+    medicine: str = Field(min_length=1, max_length=160)
     quantity: int = Field(default=1, gt=0)
-    pharmacy_name: str
+    pharmacy_name: str = Field(min_length=1, max_length=160)
 
 
 class TransferSuggestion(BaseModel):

@@ -101,17 +101,30 @@ Install these first:
 - Python 3.11+
 - Node.js 20+
 - npm
+- Docker Desktop with its Linux engine running
 
-### 1. Start The Backend
+### 1. Start PostgreSQL and Redis
+
+From the project root, with Docker Desktop running:
+
+```powershell
+docker compose up -d db redis
+```
+
+PostgreSQL is exposed on `localhost:5433` to avoid conflicting with a Windows PostgreSQL service on port 5432. Inside Docker, the database uses `db:5432` and Redis uses `redis:6379`.
+
+### 2. Start The Backend
 
 From the project root:
 
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8001
+# First setup only; preserve an existing .env and update its DATABASE_URL port to 5433.
+Copy-Item .env.example .env
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m alembic upgrade head
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8001
 ```
 
 Backend URL:
@@ -126,7 +139,7 @@ API docs:
 http://localhost:8001/docs
 ```
 
-### 2. Start The Frontend
+### 3. Start The Frontend
 
 Open a new terminal from the project root:
 
@@ -148,9 +161,9 @@ If port `5173` is already in use, Vite will automatically choose another port su
 http://localhost:5174
 ```
 
-### 3. Sign In
+### 4. Sign Up, Then Sign In
 
-Use the auth screen and choose a role:
+Create an account first using the auth screen, then sign in with its email, password, and role. Available prototype roles:
 
 - Pharmacist
 - Hospital Staff
@@ -160,10 +173,14 @@ Use the auth screen and choose a role:
 Password rule:
 
 ```text
-Use any password with at least 6 characters.
+Choose a password with at least 6 non-padding characters. Sign in requires the password used at signup.
 ```
 
 The selected role controls which pages appear in the sidebar.
+
+Current limitations: users, inventory, and reservations still use an in-memory prototype store and reset when the backend restarts. Migrations create the relational schema, but operational routes do not persist to it yet. Passwords are salted and hashed in memory. Tokens are prototype values; operational routes do not yet enforce authentication, resource ownership, or server-side roles, and public signup permits all prototype roles. Run this version locally, not as a production deployment.
+
+Recommendation distance uses coordinates; travel time and confidence are simple estimates, not live routing or trained predictions. Opening hours and verification are not established by inventory creation, so recommendations do not claim open or verified status.
 
 ## API Endpoints
 
@@ -171,7 +188,8 @@ Main backend endpoints:
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| GET | `/health` | API health check |
+| GET | `/health` | API liveness check |
+| GET | `/health/ready` | Database connectivity check; returns 503 when unavailable |
 | POST | `/auth/login` | Role-based sign in |
 | POST | `/auth/signup` | Create a role-based demo account |
 | GET | `/dashboard/summary` | Dashboard metrics |
@@ -213,7 +231,8 @@ Run these before committing:
 
 ```bash
 cd backend
-python -m compileall app
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m compileall app
 ```
 
 ```bash

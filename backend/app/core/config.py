@@ -1,17 +1,21 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_env: str = "development"
-    database_url: str = "postgresql+psycopg://mediassure:mediassure@localhost:5432/mediassure"
+    database_url: str = "postgresql+psycopg://mediassure:mediassure@localhost:5433/mediassure"
     redis_url: str = "redis://localhost:6379/0"
     jwt_secret: str = "change-me"
     aws_region: str = "ap-south-1"
     cors_origins: str = "http://localhost:5173,http://localhost:5174"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parents[2] / ".env",
+        env_file_encoding="utf-8",
+    )
 
     @property
     def allowed_origins(self) -> list[str]:
