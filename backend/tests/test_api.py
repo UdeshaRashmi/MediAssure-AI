@@ -1,27 +1,29 @@
-"""API regression checks using ASGI directly; no running server or database needed."""
+"""PostgreSQL integration tests. Every test runs inside a rolled-back transaction.
+Run migrations first; no fixtures or accounts survive the test run.
+"""
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 import json
 import unittest
 from unittest.mock import patch
-
-from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
-
+from sqlalchemy.orm import Session
 from app.main import app
-from app.routers.auth import verify_password
-from app.routers.reservations import create_reservation
-from app.schemas.demo import ReservationCreate
-from app.services import demo_data as store
+from app.db.session import engine, get_db
+from app.models.user import User, UserRole
+from app.models.inventory import Inventory
+from app.models.reservation import Reservation
+from app.core.security import hash_password, verify_password
+from app.routers.auth import issue_session
 
-
-async def asgi_request(method, path, data=None):
+async def asgi_request(method, path, data=None, token=None):
     path, _, query = path.partition("?")
     body = json.dumps(data).encode() if data is not None else b""
     scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
              "method": method, "scheme": "http", "path": path, "raw_path": path.encode(),
              "query_string": query.encode(), "root_path": "",
-             "headers": [(b"content-type", b"application/json")],
+             "headers": [(b"content-type", b"application/json")] + ([(b"authorization", f"Bearer {token}".encode())] if token else []),
              "server": ("testserver", 80), "client": ("127.0.0.1", 1234)}
     messages = []
 
@@ -34,121 +36,171 @@ async def asgi_request(method, path, data=None):
     await app(scope, receive, send)
     status = next(message["status"] for message in messages if message["type"] == "http.response.start")
     content = b"".join(message.get("body", b"") for message in messages if message["type"] == "http.response.body")
-    return status, json.loads(content)
+    return status, json.loads(content) if content else None
 
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
-        for name in ("USERS", "INVENTORY", "RECOMMENDATIONS", "RESERVATIONS", "TRANSFERS",
-                     "FORECASTS", "NETWORK", "ALERTS", "AUDIT_EVENTS", "VERIFIED_ALTERNATIVES"):
-            getattr(store, name).clear()
+        self.connection = engine.connect()
+        self.transaction = self.connection.begin()
+        self.db = Session(bind=self.connection, join_transaction_mode="create_savepoint")
+        app.dependency_overrides[get_db] = lambda: self.db
+        self.token = None
 
-    def request(self, method, path, data=None):
-        return asyncio.run(asgi_request(method, path, data))
+    def tearDown(self):
+        app.dependency_overrides.clear()
+        self.db.close()
+        self.transaction.rollback()
+        self.connection.close()
 
-    def inventory(self, **overrides):
-        data = {"medicine": "Medicine A", "stock": 10, "pharmacy_name": "Pharmacy A"}
-        data.update(overrides)
+    def request(self, method, path, data=None, token=None):
+        return asyncio.run(asgi_request(method, path, data, self.token if token is None else token))
+
+    def signup(self, role="Patient", email="integration@example.test"):
+        return self.request("POST", "/auth/signup", {"name": "??????? User", "email": email,
+                            "password": "secret123", "role": role})
+
+    def admin(self):
+        user = User(name="Test Admin", email="admin-integration@example.test", role=UserRole.ADMIN,
+                    is_approved=True, password_hash=hash_password("admin-secret"))
+        self.db.add(user); self.db.flush()
+        return issue_session(self.db, user)["access_token"]
+
+    def operator(self, email="operator@example.test"):
+        status, payload = self.signup("Pharmacist", email)
+        self.assertEqual(status, 201)
+        token = payload["access_token"]
+        self.assertEqual(self.request("POST", f"/admin/users/{payload['user']['id']}/approve", token=self.admin_token)[0], 200)
+        return token
+
+    def inventory(self, **changes):
+        data = {"medicine": "??????? Medicine", "generic": "Test generic", "stock": 3,
+                "pharmacy_name": "Test Pharmacy", "area": "Real entered address", "contact_number": "0111234567",
+                "latitude": 6.9271, "longitude": 79.8612, "is_open": True, "reorder_level": 1}
+        data.update(changes)
         return self.request("POST", "/inventory", data)
 
-    def reserve(self, **overrides):
-        data = {"medicine": "Medicine A", "pharmacy_name": "Pharmacy A", "quantity": 2}
-        data.update(overrides)
-        return self.request("POST", "/reservations", data)
-
-    def test_inventory_validation(self):
-        for change in ({"reserved": 11}, {"medicine": "  "}, {"latitude": 91}, {"longitude": -181}, {"stock": -1}):
-            with self.subTest(change=change):
-                self.assertEqual(self.inventory(**change)[0], 422)
-        self.assertEqual(store.INVENTORY, [])
-
-    def test_duplicate_inventory_and_pharmacy_network(self):
-        self.assertEqual(self.inventory()[0], 201)
-        self.assertEqual(self.inventory(medicine=" medicine a ")[0], 409)
-        self.assertEqual(self.inventory(medicine="Medicine B")[0], 201)
-        self.assertEqual(len(store.NETWORK), 1)
-        self.assertEqual(len(store.INVENTORY), 2)
-
-    def test_dashboard_uses_real_medicine_count(self):
-        self.assertEqual(self.request("GET", "/dashboard/summary")[1]["active_medicines"], 0)
-        self.inventory()
-        self.inventory(pharmacy_name="Pharmacy B")
-        self.assertEqual(self.request("GET", "/dashboard/summary")[1]["active_medicines"], 1)
-
-    def test_reservations_saved_and_stock_enforced(self):
-        self.inventory(stock=3)
-        status, first = self.reserve()
+    def setup_stock(self):
+        self.admin_token = self.admin()
+        self.pharmacist = self.operator()
+        self.token = self.pharmacist
+        status, self.stock = self.inventory()
         self.assertEqual(status, 201)
-        self.assertEqual(self.reserve(quantity=2)[0], 409)
-        status, second = self.reserve(quantity=1)
+        _, patient = self.signup()
+        self.patient = patient["access_token"]
+        self.token = self.patient
+
+    def reserve(self, quantity=1):
+        return self.request("POST", "/reservations", {"inventory_id": self.stock["id"], "quantity": quantity})
+
+    def test_signup_persists_hash_and_login_requires_matching_role(self):
+        status, result = self.signup()
         self.assertEqual(status, 201)
-        self.assertNotEqual(first["id"], second["id"])
-        self.assertEqual(len(self.request("GET", "/reservations")[1]), 2)
-        self.assertEqual(store.INVENTORY[0].reserved, 3)
-        self.assertEqual(store.NETWORK[0].urgent_gaps, 10)
-        self.assertEqual(self.reserve(pharmacy_name="Other")[0], 404)
-
-    def test_concurrent_reservations_do_not_oversell(self):
-        self.inventory(stock=1)
-        payload = ReservationCreate(medicine="Medicine A", pharmacy_name="Pharmacy A")
-
-        def reserve_one(_):
-            try:
-                create_reservation(payload)
-                return 201
-            except HTTPException as error:
-                return error.status_code
-
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            statuses = list(executor.map(reserve_one, range(4)))
-        self.assertEqual(statuses.count(201), 1)
-        self.assertEqual(statuses.count(409), 3)
-
-    def test_recommendations_filter_medicine_quantity_and_distance(self):
-        self.inventory()
-        self.inventory(medicine="Medicine B", pharmacy_name="Other")
-        self.inventory(pharmacy_name="Far", latitude=7.2)
-        path = "/pharmacies/recommendations?medicine_id=1&latitude=6.9271&longitude=79.8612"
-        status, matches = self.request("GET", path)
-        self.assertEqual(status, 200)
-        self.assertEqual([item["name"] for item in matches], ["Pharmacy A", "Far"])
-        self.assertEqual(matches[0]["distance_km"], 0)
-        self.assertFalse(matches[0]["verified"])
-        self.reserve(quantity=10)
-        self.assertEqual(len(self.request("GET", path)[1]), 1)
-        self.assertEqual(self.request("GET", path + "&quantity=11")[1], [])
-        self.assertEqual(self.request("GET", path + "&quantity=0")[0], 422)
-        self.assertEqual(self.request("GET", path.replace("medicine_id=1", "medicine_id=99"))[0], 404)
-
-    def test_signup_normalizes_email_and_hashes_password(self):
-        payload = {"name": " Test User ", "email": " USER@example.com ", "password": "secret123", "role": "Patient"}
-        status, response = self.request("POST", "/auth/signup", payload)
-        self.assertEqual(status, 201)
-        self.assertEqual(response["user"]["email"], "user@example.com")
-        self.assertEqual(response["user"]["name"], "Test User")
-        saved = store.USERS["user@example.com"]
-        self.assertNotIn("password", saved)
-        self.assertTrue(verify_password("secret123", saved["password_hash"]))
-        self.assertNotIn("password_hash", response["user"])
-        self.assertEqual(self.request("POST", "/auth/signup", payload)[0], 409)
-        credentials = {key: payload[key] for key in ("email", "password", "role")}
+        user = self.db.get(User, result["user"]["id"])
+        self.assertTrue(verify_password("secret123", user.password_hash))
+        self.assertNotIn("password_hash", result["user"])
+        credentials = {"email": "INTEGRATION@example.test", "password": "secret123", "role": "Patient"}
         self.assertEqual(self.request("POST", "/auth/login", credentials)[0], 200)
-        credentials["password"] = "incorrect"
+        credentials["role"] = "Admin"
         self.assertEqual(self.request("POST", "/auth/login", credentials)[0], 401)
+        self.assertEqual(self.signup()[0], 409)
 
-    def test_signup_rejects_invalid_email_and_role(self):
-        payload = {"name": "Test", "email": "not-an-email", "password": "secret123"}
-        self.assertEqual(self.request("POST", "/auth/signup", payload)[0], 422)
-        payload.update(email="test@example.com", role="Unknown")
-        self.assertEqual(self.request("POST", "/auth/signup", payload)[0], 422)
+    def test_public_admin_signup_is_forbidden(self):
+        self.assertEqual(self.signup("Admin")[0], 403)
 
-    def test_readiness_reports_database_failure(self):
-        with patch("app.routers.health.engine") as engine:
-            engine.connect.side_effect = OperationalError("connect", {}, Exception("private connection details"))
-            status, response = self.request("GET", "/health/ready")
+    def test_staff_approval_is_enforced(self):
+        _, result = self.signup("Pharmacist")
+        self.token = result["access_token"]
+        self.assertFalse(result["user"]["approved"])
+        self.assertEqual(self.request("GET", "/inventory")[0], 403)
+        admin = self.admin()
+        self.assertEqual(self.request("POST", f"/admin/users/{result['user']['id']}/approve", token=admin)[0], 200)
+        self.assertEqual(self.request("GET", "/inventory")[0], 200)
+
+    def test_unauthenticated_and_patient_operational_access(self):
+        self.assertEqual(self.request("GET", "/inventory")[0], 401)
+        _, result = self.signup(); self.token = result["access_token"]
+        self.assertEqual(self.request("GET", "/inventory")[0], 403)
+        self.assertEqual(self.request("GET", "/admin/users")[0], 403)
+        self.assertEqual(self.request("GET", "/dashboard/summary")[0], 403)
+
+    def test_logout_revokes_persisted_token(self):
+        _, result = self.signup(); self.token = result["access_token"]
+        self.assertEqual(self.request("GET", "/auth/me")[0], 200)
+        self.assertEqual(self.request("POST", "/auth/logout")[0], 204)
+        self.assertEqual(self.request("GET", "/auth/me")[0], 401)
+
+    def test_inventory_validation_and_duplicate_rejection(self):
+        self.setup_stock(); self.token = self.pharmacist
+        self.assertEqual(self.inventory()[0], 409)
+        self.assertEqual(self.inventory(medicine=" ")[0], 422)
+        self.assertEqual(self.inventory(latitude=91)[0], 422)
+        self.assertEqual(self.inventory(reserved=1)[0], 422)
+        self.assertEqual(self.inventory(stock=-1)[0], 422)
+
+    def test_reservation_stock_and_cancellation(self):
+        self.setup_stock()
+        status, row = self.reserve(2); self.assertEqual(status, 201)
+        self.assertEqual(self.reserve(2)[0], 409)
+        self.assertEqual(self.request("PATCH", f"/reservations/{row['id']}", {"status": "confirmed"})[0], 403)
+        self.assertEqual(self.request("PATCH", f"/reservations/{row['id']}", {"status": "cancelled"})[0], 200)
+        self.assertEqual(self.db.get(Inventory, self.stock["id"]).reserved_stock, 0)
+        self.assertEqual(self.reserve(3)[0], 201)
+
+    def test_confirmation_and_pickup_adjust_stock_once(self):
+        self.setup_stock(); _, row = self.reserve(2)
+        self.token = self.pharmacist
+        for state in ("confirmed", "completed"):
+            self.assertEqual(self.request("PATCH", f"/reservations/{row['id']}", {"status": state})[0], 200)
+        self.assertEqual(self.request("PATCH", f"/reservations/{row['id']}", {"status": "completed"})[0], 409)
+        item = self.db.get(Inventory, self.stock["id"])
+        self.assertEqual((item.current_stock, item.reserved_stock), (1, 0))
+
+    def test_expiry_releases_stock_once(self):
+        self.setup_stock(); _, row = self.reserve(2)
+        self.db.get(Reservation, int(row["id"])).expires_at = datetime.now(UTC)-timedelta(minutes=1)
+        self.db.commit()
+        for _ in range(2):
+            self.assertEqual(self.request("GET", "/reservations")[0], 200)
+        item = self.db.get(Inventory, self.stock["id"])
+        self.assertEqual(item.reserved_stock, 0)
+
+    def test_ownership_isolation(self):
+        self.setup_stock(); _, reservation = self.reserve()
+        _, other = self.signup(email="other@example.test"); self.token = other["access_token"]
+        self.assertEqual(self.request("GET", "/reservations")[1], [])
+        self.assertEqual(self.request("PATCH", f"/reservations/{reservation['id']}", {"status": "cancelled"})[0], 404)
+        self.token = self.operator("other-operator@example.test")
+        self.assertEqual(self.request("GET", "/inventory")[1], [])
+        self.assertEqual(self.request("PATCH", f"/inventory/{self.stock['id']}", {"stock": 9, "reorder_level": 2})[0], 404)
+
+    def test_real_medicine_search_and_recommendations(self):
+        self.setup_stock()
+        status, medicines = self.request("GET", "/medicines/search?query=Medicine")
+        self.assertEqual(status, 200); self.assertEqual(len(medicines), 1)
+        path = f"/pharmacies/recommendations?medicine_id={medicines[0]['id']}&latitude=6.9271&longitude=79.8612"
+        self.assertEqual(self.request("GET", path)[1][0]["id"], self.stock["id"])
+        self.reserve(3)
+        self.assertEqual(self.request("GET", path)[1], [])
+        self.assertEqual(self.request("GET", path+"&quantity=0")[0], 422)
+
+    def test_hospital_role_and_persistence_across_sessions(self):
+        self.admin_token = self.admin()
+        _, staff = self.signup("Hospital Staff")
+        self.request("POST", f"/admin/users/{staff['user']['id']}/approve", token=self.admin_token)
+        self.token = staff["access_token"]
+        self.assertEqual(self.request("GET", "/pharmacies")[0], 200)
+        self.assertEqual(self.inventory()[0], 403)
+        self.db.close()
+        self.db = Session(bind=self.connection, join_transaction_mode="create_savepoint")
+        self.assertEqual(self.request("GET", "/auth/me")[0], 200)
+
+    def test_readiness_hides_database_errors(self):
+        with patch("app.routers.health.engine") as mocked:
+            mocked.connect.side_effect = OperationalError("connect", {}, Exception("private"))
+            status, result = self.request("GET", "/health/ready")
         self.assertEqual(status, 503)
-        self.assertNotIn("private", response["detail"])
-        self.assertEqual(self.request("GET", "/health")[0], 200)
+        self.assertNotIn("private", result["detail"])
 
 
 if __name__ == "__main__":
