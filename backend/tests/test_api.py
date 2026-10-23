@@ -13,6 +13,8 @@ from app.main import app
 from app.db.session import engine, get_db
 from app.models.user import User, UserRole
 from app.models.inventory import Inventory
+from app.models.session import AuthSession
+from hashlib import sha256
 from app.models.reservation import Reservation
 from app.core.security import hash_password, verify_password
 from app.routers.auth import issue_session
@@ -194,6 +196,24 @@ class ApiTests(unittest.TestCase):
         self.db.close()
         self.db = Session(bind=self.connection, join_transaction_mode="create_savepoint")
         self.assertEqual(self.request("GET", "/auth/me")[0], 200)
+
+    def test_expired_and_forged_sessions_are_rejected(self):
+        _, result = self.signup(); self.token = result["access_token"]
+        session = self.db.get(AuthSession, sha256(self.token.encode()).hexdigest())
+        session.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        self.db.commit()
+        self.assertEqual(self.request("GET", "/auth/me")[0], 401)
+        self.assertEqual(self.request("GET", "/auth/me", token="invented-token")[0], 401)
+
+    def test_closed_pharmacy_cannot_accept_reservations(self):
+        self.setup_stock()
+        self.assertEqual(self.request("PATCH", "/pharmacies/mine", {"is_open": False}, token=self.pharmacist)[0], 200)
+        self.assertEqual(self.reserve()[0], 409)
+
+    def test_stock_update_cannot_overwrite_reserved_units(self):
+        self.setup_stock(); self.reserve(2)
+        self.assertEqual(self.request("PATCH", f"/inventory/{self.stock['id']}",
+                                     {"stock": 1, "reorder_level": 0}, token=self.pharmacist)[0], 409)
 
     def test_unicode_names_round_trip_through_database(self):
         name = "\u0d96\u0dc2\u0db0"
