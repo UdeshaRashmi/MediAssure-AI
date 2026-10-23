@@ -74,6 +74,8 @@ def expire_reservations(db: Session):
         if stock:
             stock.reserved_stock -= row.quantity
         row.status = ReservationStatus.EXPIRED
+        from app.services.notifications import reservation_email
+        reservation_email(db, row)
     db.flush()
 
 

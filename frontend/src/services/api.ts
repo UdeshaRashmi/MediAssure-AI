@@ -72,6 +72,13 @@ export function fetchAlerts() { return request<OperationalAlert[]>("/operations/
 export function fetchAuditEvents() { return request<AuditEvent[]>("/operations/audit-events"); }
 export function fetchForecasts() { return request<DemandForecast[]>("/operations/forecasts"); }
 export function fetchTransfers() { return request<TransferSuggestion[]>("/operations/transfers"); }
+export type CompletedTransfer = { id: number; from: string; to: string; medicine: string; qty: number; status: string; created_at: string };
+export function fetchTransferHistory() { return request<CompletedTransfer[]>("/operations/transfer-history"); }
+export function recordTransfer(body: { from_inventory_id: number; to_inventory_id: number; quantity: number; request_key: string }) { return request<CompletedTransfer>("/operations/transfers", "POST", body); }
+export type EmailDelivery = { transport: "disabled" | "file" | "smtp"; messages: { id: number; subject: string; status: string; attempts: number; last_error: string | null; created_at: string; sent_at: string | null }[] };
+export function fetchEmailDelivery() { return request<EmailDelivery>("/operations/emails"); }
+export function emailMyAlerts() { return request<{ queued: number }>("/operations/alerts/email", "POST"); }
+export function retryEmail(id: number) { return request("/operations/emails/" + id + "/retry", "POST"); }
 export function fetchVerifiedAlternatives() { return request<VerifiedAlternative[]>("/operations/verified-alternatives"); }
 export function fetchUsers() { return request<SessionUser[]>("/admin/users"); }
 export function approveUser(id: number) { return request(`/admin/users/${id}/approve`, "POST"); }

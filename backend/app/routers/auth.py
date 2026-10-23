@@ -13,6 +13,7 @@ from app.models.user import User, UserRole
 from app.schemas.validation import validate_phone
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.services.records import audit
+from app.services.notifications import queue_email
 
 router = APIRouter()
 ALLOWED_ROLES = set(ROLE_VALUES)
@@ -97,6 +98,8 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, "User already exists") from None
+    queue_email(db, user.id, f"account-created:{user.id}", "MediAssure: account created",
+                "Your account has been created." + (" Staff access requires administrator approval." if not user.is_approved else " You can now sign in and find medicines."))
     return issue_session(db, user)
 
 

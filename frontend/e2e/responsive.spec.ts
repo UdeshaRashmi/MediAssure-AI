@@ -16,6 +16,7 @@ async function workspace(page: Page) {
     else if (path === "/pharmacies") body = [{ ...institution, status: "Online", open_until: institution.opening_hours, stock_health: 80, urgent_gaps: 0, last_sync: "2026-10-23T08:00:00Z" }];
     else if (path === "/pharmacies/1/stock") body = [{ id: 1, medicine: inventory[0].medicine, generic: "Generic", strength: "500 mg", available: 28, updated_at: "2026-10-23T08:00:00Z" }];
     else if (path === "/reservations") body = [{ id: "1", can_manage: true, pharmacy_name: longName, patient: "A patient with a long name", medicine: inventory[0].medicine, quantity: 2, expires_at: "2026-10-23T09:00:00Z", status: "Pending" }];
+    else if (path === "/operations/emails") body = { transport: "disabled", messages: [] };
     else if (path.startsWith("/operations/")) body = [];
     else return route.continue();
     await route.fulfill({ json: body });
@@ -198,6 +199,48 @@ test("profile edits validate and persist across reloads", async ({ page }) => {
   await expect(name).toHaveValue("Updated staff member");
   await expect(email).toHaveValue("updated@example.test");
   await expect(phone).toHaveValue("0771234567");
+  await page.locator("header select").selectOption("si");
+  await expect(page.locator("html")).toHaveAttribute("lang", "si");
+  await noOverflow(page);
+});
+
+
+test("rebalancing confirms transfers and alerts show honest email status", async ({ page }) => {
+  await workspace(page);
+  let transfers = 0;
+  let emails = 0;
+  await page.route("**/operations/transfers", async route => {
+    if (route.request().method() === "POST") {
+      transfers++;
+      const body = route.request().postDataJSON();
+      expect(body.quantity).toBe(8);
+      expect(body.request_key).toMatch(/^[a-f0-9-]{36}$/);
+      await route.fulfill({ json: { id: 1 } });
+    } else await route.fulfill({ json: transfers ? [] : [{ from_inventory_id: 1, to_inventory_id: 2, from: "Donor pharmacy", to: "Receiver hospital", medicine: "Panadol 500 mg", qty: 8, distance_km: 2.3, can_execute: true }] });
+  });
+  await page.route("**/operations/transfer-history", route => route.fulfill({ json: transfers ? [{ id: 1, from: "Donor pharmacy", to: "Receiver hospital", medicine: "Panadol 500 mg", qty: 8, status: "completed", created_at: "2026-10-23T08:00:00Z" }] : [] }));
+  await page.route("**/operations/alerts", route => route.fulfill({ json: [{ inventory_id: 1, title: "Panadol 500 mg", pharmacy: "Donor pharmacy", available: 0, reserved: 2, reorder_level: 10, tone: "danger" }] }));
+  await page.route("**/operations/alerts/email", route => { emails++; return route.fulfill({ json: { transport: "disabled", queued: 1 } }); });
+  await page.route("**/operations/emails", route => route.fulfill({ json: { transport: "disabled", messages: emails ? [{ id: 1, subject: "MediAssure: low stock - Panadol", status: "pending", attempts: 0, last_error: null, created_at: "2026-10-23T08:00:00Z", sent_at: null }] : [] } }));
+  await navigate(page, "Rebalancing");
+  await expect(page.getByText("Panadol 500 mg", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Record completed transfer", exact: true }).click();
+  const confirm = page.getByRole("dialog", { name: "Confirm completed transfer", exact: true });
+  await expect(confirm).toBeVisible();
+  expect(transfers).toBe(0);
+  await confirm.getByRole("button", { name: "Confirm completed transfer", exact: true }).click();
+  await expect(page.getByText("#1", { exact: false })).toBeVisible();
+  expect(transfers).toBe(1);
+  await noOverflow(page);
+  // App refresh after transfer reloads alerts from the mocked current stock.
+  await navigate(page, "Alerts");
+  await expect(page.getByText("Available stock: 0", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Email my alerts", exact: true }).click();
+  await expect(page.getByText("MediAssure: low stock - Panadol", { exact: true })).toBeVisible();
+  await expect(page.getByText("Delivery status: Queued", { exact: true })).toBeVisible();
+  await expect(page.getByText("Email delivery is not configured. Messages remain queued until an administrator enables email delivery.", { exact: true })).toBeVisible();
+  expect(emails).toBe(1);
+  await noOverflow(page);
   await page.locator("header select").selectOption("si");
   await expect(page.locator("html")).toHaveAttribute("lang", "si");
   await noOverflow(page);

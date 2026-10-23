@@ -3,7 +3,9 @@ services:
     build:
       context: ./backend
     env_file:
-      - ./backend/.env.example
+      - path: ./backend/.env.example
+      - path: ./backend/.env
+        required: false
     environment:
       DATABASE_URL: postgresql+psycopg://mediassure:mediassure@db:5432/mediassure
       REDIS_URL: redis://redis:6379/0
@@ -14,6 +16,26 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+
+  notification-worker:
+    build:
+      context: ./backend
+    command: ["python", "-m", "app.notification_worker"]
+    restart: unless-stopped
+    env_file:
+      - path: ./backend/.env.example
+      - path: ./backend/.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://mediassure:mediassure@db:5432/mediassure
+      EMAIL_PREVIEW_DIR: /app/email_previews
+    volumes:
+      - email_previews:/app/email_previews
+    depends_on:
+      backend:
+        condition: service_started
+      db:
+        condition: service_healthy
 
   frontend:
     build:
@@ -56,4 +78,5 @@ services:
 
 volumes:
   postgres_data:
+  email_previews:
 

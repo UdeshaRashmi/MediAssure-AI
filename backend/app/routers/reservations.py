@@ -9,6 +9,7 @@ from app.models.inventory import Inventory
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
 from app.schemas.validation import MAX_STOCK
+from app.services.notifications import reservation_email
 from app.services.records import audit, expire_reservations, reservation_data, reservation_query
 
 router = APIRouter()
@@ -43,6 +44,8 @@ def create_reservation(payload: ReservationCreate,
                       expires_at=datetime.now(UTC) + timedelta(minutes=15))
     stock.reserved_stock += payload.quantity
     db.add(row)
+    db.flush()
+    reservation_email(db, row)
     audit(db, user, "Created reservation", stock.medicine.name)
     db.commit()
     return reservation_data(row, user)
@@ -73,6 +76,7 @@ def update_reservation(reservation_id: int, payload: ReservationUpdate,
         if payload.status == ReservationStatus.COMPLETED:
             stock.current_stock -= row.quantity
     row.status = payload.status
+    reservation_email(db, row)
     audit(db, user, "Updated reservation", str(row.id))
     db.commit()
     return reservation_data(row, user)

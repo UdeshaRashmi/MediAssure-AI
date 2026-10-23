@@ -5,6 +5,7 @@ from app.core.access import require_roles, user_data
 from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.services.records import audit
+from app.services.notifications import queue_email
 
 router = APIRouter(dependencies=[Depends(require_roles(UserRole.ADMIN))])
 
@@ -21,5 +22,7 @@ def approve(user_id: int, actor: User = Depends(require_roles(UserRole.ADMIN)), 
         raise HTTPException(404, "User not found")
     user.is_approved = True
     audit(db, actor, "Approved staff account", user.email)
+    queue_email(db, user.id, f"account-approved:{user.id}", "MediAssure: staff account approved",
+                "Your staff account has been approved. You can now sign in using your registered email and role.")
     db.commit()
     return user_data(user)

@@ -379,6 +379,116 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.request("GET", "/auth/me")[1]["email"], "integration@example.test")
         self.assertEqual(self.request("GET", "/auth/me", token=other["access_token"])[1]["email"], "other-profile@example.test")
 
+    def setup_transfer_pair(self):
+        self.setup_stock()
+        self.request("PATCH", f"/inventory/{self.stock['id']}", {"stock": 30, "reorder_level": 5}, token=self.pharmacist)
+        self.receiver = self.operator("transfer-receiver@example.test")
+        self.token = self.receiver
+        status, self.destination = self.inventory(pharmacy_name="Receiver Pharmacy", stock=2, reorder_level=5)
+        self.assertEqual(status, 201)
+        self.token = self.pharmacist
+        from uuid import uuid4
+        self.transfer_payload = {"from_inventory_id": self.stock["id"], "to_inventory_id": self.destination["id"],
+                                 "quantity": 8, "request_key": str(uuid4())}
+
+    def test_transfer_suggestions_completion_idempotence_and_ownership(self):
+        self.setup_transfer_pair()
+        status, rows = self.request("GET", "/operations/transfers")
+        self.assertEqual(status, 200)
+        suggestion = next(row for row in rows if row["from_inventory_id"] == self.stock["id"] and row["to_inventory_id"] == self.destination["id"])
+        self.assertEqual(suggestion["qty"], 8)
+        self.assertTrue(suggestion["can_execute"])
+        self.assertEqual(self.request("POST", "/operations/transfers", self.transfer_payload, token=self.receiver)[0], 403)
+        self.assertEqual(self.request("POST", "/operations/transfers", self.transfer_payload, token=self.patient)[0], 403)
+        status, transfer = self.request("POST", "/operations/transfers", self.transfer_payload)
+        self.assertEqual(status, 200)
+        self.assertEqual(transfer["status"], "completed")
+        self.assertEqual(self.request("POST", "/operations/transfers", self.transfer_payload)[1]["id"], transfer["id"])
+        self.db.expire_all()
+        self.assertEqual(self.db.get(Inventory, self.stock["id"]).current_stock, 22)
+        self.assertEqual(self.db.get(Inventory, self.destination["id"]).current_stock, 10)
+        self.assertTrue(any(row["id"] == transfer["id"] for row in self.request("GET", "/operations/transfer-history", token=self.receiver)[1]))
+        outsider = self.operator("transfer-outsider@example.test")
+        self.assertEqual(self.request("GET", "/operations/transfer-history", token=outsider)[1], [])
+        self.assertEqual(self.request("POST", "/operations/transfers", self.transfer_payload, token=outsider)[0], 404)
+
+    def test_transfer_rechecks_stock_and_preserves_reserved_units(self):
+        self.setup_transfer_pair()
+        row = self.db.get(Inventory, self.stock["id"])
+        row.reserved_stock = 15
+        self.db.flush()
+        self.assertEqual(self.request("POST", "/operations/transfers", self.transfer_payload)[0], 409)
+        self.db.expire_all()
+        self.assertEqual(self.db.get(Inventory, self.stock["id"]).current_stock, 30)
+        self.assertEqual(self.db.get(Inventory, self.destination["id"]).current_stock, 2)
+        self.assertEqual(self.request("POST", "/operations/transfers", {**self.transfer_payload, "quantity": 5})[0], 200)
+        self.db.expire_all()
+        source = self.db.get(Inventory, self.stock["id"])
+        self.assertEqual(source.current_stock-source.reserved_stock, 10)
+        self.assertEqual(self.request("POST", "/operations/transfers", {**self.transfer_payload, "quantity": 4})[0], 409)
+
+    def test_alert_emails_deduplicate_and_resolve_with_replenishment(self):
+        from app.models.email_message import EmailMessage
+        from app.services.notifications import queue_low_stock, deliver_pending
+        from app.core.config import Settings
+        from tempfile import TemporaryDirectory
+        self.setup_stock(); self.token = self.pharmacist
+        self.request("PATCH", f"/inventory/{self.stock['id']}", {"stock": 0, "reorder_level": 1})
+        alerts = self.request("GET", "/operations/alerts")[1]
+        self.assertEqual(next(row for row in alerts if row["inventory_id"] == self.stock["id"])["available"], 0)
+        self.request("POST", "/operations/alerts/email")
+        self.request("POST", "/operations/alerts/email")
+        rows = self.db.scalars(select(EmailMessage).where(EmailMessage.event_key.like(f"low-stock:{self.stock['id']}:%"))).all()
+        self.assertEqual(len(rows), 1)
+        queue_low_stock(self.db)
+        self.assertEqual(len(self.db.scalars(select(EmailMessage).where(EmailMessage.event_key.like(f"low-stock:{self.stock['id']}:%"))).all()), 1)
+        self.request("PATCH", f"/inventory/{self.stock['id']}", {"stock": 20, "reorder_level": 1})
+        self.assertFalse(any(row["inventory_id"] == self.stock["id"] for row in self.request("GET", "/operations/alerts")[1]))
+        with TemporaryDirectory() as preview:
+            deliver_pending(self.db, Settings(email_transport="file", email_preview_dir=preview), user_id=self.db.get(Inventory, self.stock["id"]).pharmacy.owner_user_id)
+        self.db.refresh(rows[0]); self.assertEqual(rows[0].status, "skipped")
+        self.assertEqual(self.request("GET", "/operations/alerts", token=self.patient)[0], 403)
+
+    def test_notification_delivery_status_retry_and_recipient_isolation(self):
+        from app.models.email_message import EmailMessage
+        from app.services.notifications import queue_email, deliver_pending
+        from app.core.config import Settings
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        import smtplib
+        _, account = self.signup(); self.token = account["access_token"]
+        queue_email(self.db, account["user"]["id"], "delivery-test", "Test notification", "Message body")
+        self.db.commit()
+        with TemporaryDirectory() as preview:
+            delivered = deliver_pending(self.db, Settings(email_transport="file", email_preview_dir=preview), user_id=account["user"]["id"])
+            self.assertEqual(delivered, 2)
+            self.assertEqual(len(list(Path(preview).glob("*.eml"))), 2)
+            self.assertIn(b"To: integration@example.test", next(Path(preview).glob("*.eml")).read_bytes())
+        status = self.request("GET", "/operations/emails")[1]
+        self.assertTrue(all(row["status"] == "preview" for row in status["messages"]))
+        _, other = self.signup(email="email-other@example.test")
+        other_messages = self.request("GET", "/operations/emails", token=other["access_token"])[1]["messages"]
+        self.assertFalse(any(row["subject"] == "Test notification" for row in other_messages))
+        settings = Settings(email_transport="smtp", smtp_host="smtp.example.test", smtp_from="sender@example.test")
+        with patch("app.services.notifications.smtplib.SMTP", side_effect=smtplib.SMTPException("private provider secret")):
+            deliver_pending(self.db, settings, user_id=other["user"]["id"])
+        row = self.db.scalar(select(EmailMessage).where(EmailMessage.user_id == other["user"]["id"]))
+        self.assertEqual(row.status, "pending")
+        self.assertEqual(row.attempts, 1)
+        self.assertNotIn("secret", row.last_error)
+        row.next_attempt_at = datetime.now(UTC) - timedelta(seconds=1); self.db.commit()
+        with patch("app.services.notifications.smtplib.SMTP") as smtp:
+            deliver_pending(self.db, settings, user_id=other["user"]["id"])
+            smtp.return_value.__enter__.return_value.starttls.assert_called_once()
+            smtp.return_value.__enter__.return_value.send_message.assert_called_once()
+        self.db.refresh(row); self.assertEqual(row.status, "sent")
+        self.assertIsNotNone(row.sent_at)
+        row.status = "failed"; self.db.commit()
+        retry_path = f"/operations/emails/{row.id}/retry"
+        self.assertEqual(self.request("POST", retry_path)[0], 404)
+        self.assertEqual(self.request("POST", retry_path, token=other["access_token"])[0], 200)
+        self.assertEqual(self.request("POST", retry_path, token=other["access_token"])[0], 409)
+
     def test_readiness_hides_database_errors(self):
         with patch("app.routers.health.engine") as mocked:
             mocked.connect.side_effect = OperationalError("connect", {}, Exception("private"))

@@ -2,6 +2,8 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, SecretStr
+from typing import Literal
 
 
 class Settings(BaseSettings):
@@ -11,6 +13,14 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me"
     aws_region: str = "ap-south-1"
     cors_origins: str = "http://localhost:5173,http://localhost:5174"
+    email_transport: Literal["disabled", "smtp", "file"] = "disabled"
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    smtp_from: str = ""
+    smtp_security: Literal["starttls", "ssl", "plain"] = "starttls"
+    email_preview_dir: str = "email_previews"
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[2] / ".env",

@@ -9,6 +9,8 @@ import { FinderPage } from "./pages/FinderPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { ReservationsPage } from "./pages/ReservationsPage";
 import { RequestPage } from "./pages/RequestPage";
+import { RebalancingPage } from "./pages/RebalancingPage";
+import { AlertsPage } from "./pages/AlertsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { NetworkPage } from "./pages/NetworkPage";
 import { canAccessPage, defaultPageByRole } from "./roleAccess";
@@ -118,9 +120,9 @@ export function App() {
           {page === "inventory" && <InventoryPage items={inventory} user={user} onChanged={refresh} />}
           {page === "reservations" && <ReservationsPage reservations={reservations} user={user} onChanged={refresh} />}
           {page === "network" && <NetworkPage networkPharmacies={network} />}
-          {page === "alerts" && <div className="grid gap-3">{alerts.length ? alerts.map((alert, index) => <article className="rounded border bg-white p-4" key={index}><h2 className="font-bold">{alert.title}</h2><p>{alert.detail}</p></article>) : <EmptyState title="No alerts" detail="No low-stock alerts from your current inventory." />}</div>}
+          {page === "alerts" && <AlertsPage initialAlerts={alerts} />}
           {page === "forecast" && <EmptyState title="No forecasts available" detail="Demand forecasting requires recorded sales history and a validated prediction model. No sample predictions are shown." />}
-          {page === "rebalancing" && <EmptyState title="No transfer suggestions" detail="Stock transfers are not enabled yet. No sample suggestions are shown." />}
+          {page === "rebalancing" && <RebalancingPage onChanged={refresh} />}
           {page === "settings" && <SettingsPage auditEvents={audit} user={user} onProfileSaved={setUser} />}
         </>}
       </section>

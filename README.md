@@ -242,7 +242,7 @@ Open the frontend URL and sign in with an existing account. You do not need to r
 | Sri Lanka map | Explore registered locations, filter by institution type/open status, and inspect available medicines |
 | Device location | Fill coordinate fields using browser location permission and check the result on a map |
 | Languages | Switch between English and Sinhala, including form validation feedback |
-| Monitoring | View stock-derived alerts, account/inventory audit events, and role-specific dashboard summaries |
+| Monitoring | Live stock alerts, durable email delivery status, transfer history, audit events, and role-specific dashboard summaries |
 | Data integrity | Enforce institution ownership, validate inputs, and lock stock rows during reservation changes |
 
 ## Roles and access
@@ -661,7 +661,7 @@ Available stock = Total stock - Reserved stock
 | Cancel reservation | Release reserved units; total stock stays unchanged |
 | Expire reservation | Release reserved units; total stock stays unchanged |
 
-Reservations use a **15-minute hold**. Confirmation does not extend the original expiry time. Expiry is processed when relevant inventory, reservation, recommendation, or location-stock data is read; there is no background expiry scheduler yet.
+Reservations use a **15-minute hold**. Confirmation does not extend the original expiry time. Expiry is processed when relevant inventory, reservation, recommendation, or location-stock data is read; the notification worker also processes expiry every 30 seconds while running.
 
 ```mermaid
 stateDiagram-v2
@@ -691,6 +691,74 @@ Forms display errors beside the affected field in the selected language and focu
 | Coordinates | Latitude `-90..90`, longitude `-180..180`; finite decimal values and zero are valid |
 
 Passwords are stored as salted PBKDF2-SHA256 hashes. Sessions last eight hours, use opaque bearer tokens whose hashes are stored in the database, and are revoked individually on logout.
+
+## Rebalancing, alerts, and email notifications
+
+**Rebalancing** is available to Pharmacists, Hospital Staff, and Admin. Suggestions use saved stock at approved, open institutions and the same medicine record (including its strength). Available stock equals total minus reserved units. A recipient at or below its reorder level can receive enough to reach twice that level, with a minimum target of one unit. A donor must retain twice its own reorder level, also at least one unit, after reservations. Suggestions prioritize nearby locations when both have coordinates; a missing location is shown explicitly rather than inventing a distance.
+
+Suggestions do not move medicines or change stock by themselves. Arrange the handover with the other institution. After the actual handover, the **donor owner** or **Admin** selects **Record completed transfer**, checks the details, and confirms. The backend locks both stock rows, rechecks availability, updates both totals atomically, records history/audit entries, and queues emails for both owners. Reserved units are protected. Repeating the same request UUID does not deduct stock twice. Other suppliers cannot change those records; receiving suppliers can view their incoming suggestions and history. No sample suggestions are generated.
+
+**Alerts** shows current low/out-of-stock entries for your institution (Admin sees all). It refreshes every 30 seconds while open. Replenished and deleted stock no longer appears. **Email my alerts** queues only the signed-in user's own stock alerts. Repeated requests and worker scans are deduplicated to one email per inventory entry per UTC calendar date. A queued low-stock email is skipped if the item has been deleted or replenished before delivery. The available/reserved quantities are refreshed before sending.
+
+Emails are also queued when an account is created, a staff account is approved, a reservation is created/confirmed/cancelled/completed/expired, or a completed transfer is recorded. Reservation notifications go to the requester and supplying owner; transfer notifications go to both institution owners. Emails use the recipient's current saved account email. Existing accounts and old events are not backfilled with sample messages.
+
+### Start the notification worker locally
+
+Apply migrations before starting the updated backend. From the project root:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m alembic upgrade head
+```
+
+Keep your normal backend and frontend terminals running. Open an additional PowerShell terminal and run:
+
+```powershell
+cd "C:\My choices\MediAssure-AI\backend"
+.\.venv\Scripts\python.exe -m app.notification_worker
+```
+
+Leave this terminal open. The worker scans stock/expired reservations and processes queued email every 30 seconds. To process one batch and exit, use `-m app.notification_worker --once`. Queuing happens in the same database transaction as the business action. An SMTP failure does not undo a saved reservation or transfer; the worker retries pending emails up to five times with increasing delays, then marks them failed. After correcting configuration, use **Retry email** on a failed message in Settings or Alerts.
+
+### Configure real SMTP delivery
+
+Add the following to your existing **backend/.env**, replacing the example values with your provider's credentials. Do not replace an existing file containing your database configuration. Never commit an SMTP password or put it in a frontend variable.
+
+```dotenv
+EMAIL_TRANSPORT=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURITY=starttls
+SMTP_USERNAME=your-sender@gmail.com
+SMTP_PASSWORD=your-provider-app-password
+SMTP_FROM=your-sender@gmail.com
+```
+
+For Gmail, use an App Password for the sender account. For another SMTP provider, use its supplied host, port, sender, and credentials. Supported security modes are `starttls` (commonly port 587), `ssl` (commonly port 465), and `plain` for a trusted local test SMTP server. Restart the backend and worker after changing email settings. No real email can be delivered until valid credentials are configured and the worker is running.
+
+In **Settings > Email delivery** or **Alerts > Email delivery**, each account sees its own queue. **Queued** means awaiting delivery/retry. **Sent to mail server** means the SMTP server accepted the message; it does not prove that a recipient read it or that a spam filter accepted it. **Delivery failed** exposes a safe configuration message rather than server credentials. SMTP is an at-least-once delivery system: a process crash after server acceptance and before database commit can cause a retry; messages retain the same Message-ID for that outbox record.
+
+### Preview email without sending externally
+
+Use this configuration in backend/.env and restart the worker:
+
+```dotenv
+EMAIL_TRANSPORT=file
+EMAIL_PREVIEW_DIR=email_previews
+```
+
+The worker writes private `.eml` files to `backend/email_previews` when started from the backend directory. Open them with an email client or text editor. The UI labels these **Preview saved**, and no message is sent to an inbox. Previewed messages are not automatically resent after switching to SMTP. For a new real delivery test, generate a new event. The default `EMAIL_TRANSPORT=disabled` retains pending messages and explicitly reports that sending is not configured.
+
+### Run the worker with Docker Desktop
+
+For a full Docker setup, Compose reads backend/.env.example and then your optional backend/.env overrides. Configure SMTP there first, then run from the project root:
+
+```powershell
+docker compose up -d --build backend frontend notification-worker
+docker compose logs --tail 50 notification-worker
+```
+
+The backend applies database migrations during startup. The worker can retry its scan until migrations are ready. In Docker preview mode, `.eml` files are stored in the `email_previews` named volume under `/app/email_previews` in the worker container. View that folder through Docker Desktop's container Files tab. If you run the backend locally instead, start the Python worker in a separate terminal as shown above.
 
 ## API reference
 
@@ -722,7 +790,12 @@ Interactive request schemas are available at <http://localhost:8001/docs>. For p
 | GET | `/operations/alerts` | Supplier/Admin low-stock alerts |
 | GET | `/operations/audit-events` | Own events; Admin sees all |
 | GET | `/operations/forecasts` | Pharmacist/Admin; currently returns an empty list |
-| GET | `/operations/transfers` | Pharmacist/Admin; currently returns an empty list |
+| GET | `/operations/transfers` | Supplier/Admin suggestions involving their own institution; Admin sees all |
+| POST | `/operations/transfers` | Donor owner/Admin records an already completed physical transfer, using an idempotency UUID |
+| GET | `/operations/transfer-history` | Transfers involving own institution; Admin sees all |
+| POST | `/operations/alerts/email` | Queue own low-stock emails, deduplicated per stock entry per UTC date |
+| GET | `/operations/emails` | Own notification delivery status and safe errors |
+| POST | `/operations/emails/{id}/retry` | Retry an owned failed notification |
 | GET | `/operations/verified-alternatives` | Approved accounts; currently returns an empty list |
 
 The `/pharmacies` route name also covers hospital medicine locations. Professional operational access requires approval in addition to authentication.
@@ -842,13 +915,13 @@ MediAssure-AI/
 The current version supports medicine availability, owned stock management, and reservation coordination. The following features are not implemented as operational services:
 
 - Trained medicine-demand, shortage, or arrival-availability prediction models.
-- Stock transfer execution or automated redistribution optimization.
+- Automated delivery logistics or trained redistribution optimization; transfers must be physically arranged by the institutions.
 - A pharmacist-verified medicine substitution workflow.
-- Batch/expiry tracking, sales-history entry, password recovery, or notifications.
+- Batch/expiry tracking, sales-history entry, or password recovery.
 - Shared institution access for multiple staff accounts.
-- Automated professional/license verification or a background reservation expiry scheduler.
+- Automated professional/license verification. Reservation expiry is processed on reads and by the notification worker while it is running.
 
-Forecast, transfer, and alternative-medicine screens/endpoints display empty results rather than sample outputs. Distance and travel-time values are estimates from saved coordinates; stock-based ranking is a heuristic, not a trained prediction or live routing service. Suppliers maintain opening status manually.
+Forecast and alternative-medicine screens/endpoints display empty results rather than sample outputs. Stock transfer suggestions are calculated from real saved inventory. Distance and travel-time values are estimates from saved coordinates; stock-based ranking is a heuristic, not a trained prediction or live routing service. Suppliers maintain opening status manually.
 
 This system does not independently prescribe medicines or automatically substitute treatments. Existing PostgreSQL records are retained during migrations; data backup and deployment hardening remain operational responsibilities. Sessions currently use browser local storage, and the development setup requires further review before public deployment.
 

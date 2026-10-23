@@ -19,6 +19,7 @@ class StockTransfer(Base):
     __tablename__ = "stock_transfers"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    request_key: Mapped[str | None] = mapped_column(String(36), unique=True, nullable=True)
     from_pharmacy_id: Mapped[int] = mapped_column(ForeignKey("pharmacies.id"), index=True)
     to_pharmacy_id: Mapped[int] = mapped_column(ForeignKey("pharmacies.id"), index=True)
     medicine_id: Mapped[int] = mapped_column(ForeignKey("medicines.id"), index=True)

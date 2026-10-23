@@ -73,15 +73,22 @@ export type Reservation = {
 };
 
 export type TransferSuggestion = {
+  from_inventory_id: number;
+  to_inventory_id: number;
+  distance_km: number | null;
+  can_execute: boolean;
   from: string;
   to: string;
   medicine: string;
   qty: number;
-  distance: string;
-  impact: string;
 };
 
 export type OperationalAlert = {
+  inventory_id?: number;
+  available?: number;
+  reserved?: number;
+  reorder_level?: number;
+  pharmacy?: string;
   title: string;
   detail: string;
   tone: "danger" | "amber" | "good";

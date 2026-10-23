@@ -22,3 +22,4 @@ __all__ = [
 
 from app.models.session import AuthSession
 from app.models.audit import AuditRecord
+from app.models.email_message import EmailMessage

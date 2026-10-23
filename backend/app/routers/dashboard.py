@@ -4,6 +4,7 @@ from app.core.access import require_roles
 from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.models.reservation import ReservationStatus
+from app.services.rebalancing import suggestions
 from app.services.records import expire_reservations, inventory_query, reservation_query
 
 router = APIRouter()
@@ -17,6 +18,6 @@ def summary(user: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.ADM
     result = {"active_medicines": len({item.medicine_id for item in items}),
               "low_stock_risk": sum(item.current_stock-item.reserved_stock <= item.reorder_level*2 for item in items),
               "pending_reservations": sum(row.status in (ReservationStatus.PENDING, ReservationStatus.CONFIRMED) for row in reservations),
-              "transfer_suggestions": 0, "api_mode": "database"}
+              "transfer_suggestions": len(suggestions(db, user)), "api_mode": "database"}
     db.commit()
     return result

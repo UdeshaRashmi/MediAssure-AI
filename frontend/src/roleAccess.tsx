@@ -28,7 +28,7 @@ export const defaultPageByRole: Record<SessionUser["role"], Page> = {
 const pagesByRole: Record<SessionUser["role"], Page[]> = {
   Patient: ["request", "finder", "reservations", "network", "settings"],
   Pharmacist: ["dashboard", "inventory", "forecast", "reservations", "rebalancing", "network", "alerts", "settings"],
-  "Hospital Staff": ["inventory", "request", "finder", "reservations", "network", "alerts", "settings"],
+  "Hospital Staff": ["inventory", "request", "finder", "reservations", "rebalancing", "network", "alerts", "settings"],
   Admin: ["dashboard", "inventory", "forecast", "reservations", "rebalancing", "network", "alerts", "settings"],
 };
 

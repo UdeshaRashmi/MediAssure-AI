@@ -51,3 +51,6 @@ logs/
 # Browser test artifacts
 frontend/test-results/
 frontend/playwright-report/
+
+# Private local email previews
+email_previews/
