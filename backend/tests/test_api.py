@@ -158,6 +158,18 @@ class ApiTests(unittest.TestCase):
         item = self.db.get(Inventory, self.stock["id"])
         self.assertEqual((item.current_stock, item.reserved_stock), (1, 0))
 
+    def test_reservation_hold_lasts_one_day_without_confirmation_extension(self):
+        self.setup_stock()
+        before = datetime.now(UTC)
+        status, row = self.reserve(1)
+        self.assertEqual(status, 201)
+        expires = datetime.fromisoformat(row["expires_at"])
+        self.assertGreaterEqual(expires, before + timedelta(hours=24))
+        self.assertLessEqual(expires, datetime.now(UTC) + timedelta(hours=24))
+        status, confirmed = self.request("PATCH", f"/reservations/{row['id']}", {"status": "confirmed"}, token=self.pharmacist)
+        self.assertEqual(status, 200)
+        self.assertEqual(confirmed["expires_at"], row["expires_at"])
+
     def test_expiry_releases_stock_once(self):
         self.setup_stock(); _, row = self.reserve(2)
         self.db.get(Reservation, int(row["id"])).expires_at = datetime.now(UTC)-timedelta(minutes=1)

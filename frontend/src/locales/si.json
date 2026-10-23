@@ -294,5 +294,10 @@
   "Completed stock transfer": "තොග හුවමාරුව සම්පූර්ණ කළා",
   "Only failed emails can be retried": "නැවත යැවිය හැක්කේ අසාර්ථක ඊමේල් පමණි.",
   "Email notification not found": "ඊමේල් දැනුම්දීම හමු නොවීය",
-  "No new emails queued. Today's alerts may already be queued, or you have no low stock.": "අලුත් ඊමේල් පෝලිමට එකතු නොවීය. අද දැනුම්දීම් දැනටමත් පෝලිමේ තිබිය හැකියි, නැතහොත් ඔබේ තොග අඩුවී නැත."
+  "No new emails queued. Today's alerts may already be queued, or you have no low stock.": "අලුත් ඊමේල් පෝලිමට එකතු නොවීය. අද දැනුම්දීම් දැනටමත් පෝලිමේ තිබිය හැකියි, නැතහොත් ඔබේ තොග අඩුවී නැත.",
+  "Patient finding medicine": "ඖෂධ සොයන රෝගියෙක්",
+  "Pharmacist managing medicine stock": "ඖෂධ තොග කළමනාකරණය කරන ඖෂධවේදියෙක්",
+  "Hospital staff managing medical supplies": "වෛද්‍ය සැපයුම් කළමනාකරණය කරන රෝහල් සේවකයෙක්",
+  "Administrator coordinating the medicine network": "ඖෂධ ජාලය සම්බන්ධීකරණය කරන පරිපාලකයෙක්",
+  "Reservations are held for 24 hours after creation.": "වෙන්කිරීමක් සෑදූ වේලාවේ සිට පැය 24ක් දක්වා වලංගු වේ."
 }

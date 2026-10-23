@@ -41,7 +41,7 @@ def create_reservation(payload: ReservationCreate,
         raise HTTPException(409, "Insufficient available stock")
     row = Reservation(user_id=user.id, pharmacy_id=stock.pharmacy_id, medicine_id=stock.medicine_id,
                       quantity=payload.quantity, status=ReservationStatus.PENDING,
-                      expires_at=datetime.now(UTC) + timedelta(minutes=15))
+                      expires_at=datetime.now(UTC) + timedelta(days=1))
     stock.reserved_stock += payload.quantity
     db.add(row)
     db.flush()

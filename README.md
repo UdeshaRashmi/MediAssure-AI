@@ -644,6 +644,8 @@ Use the language selector on the authentication screen or application header. Th
 
 In **Settings > Profile details**, users can edit their full name, email address, and optional phone number, then select **Save profile**. Changes persist across refreshes and update the sidebar immediately. Use the saved email for your next login. Email addresses must be unique; role and staff approval cannot be changed through this form. Interface labels and validation support English and Sinhala.
 
+Each account role has a matching healthcare illustration in the sidebar. Supplier/Admin inventory pages also show the relevant illustration beside the stock introduction. The artwork is bundled locally and supports both mobile and desktop layouts.
+
 ## Inventory and reservation rules
 
 Medicine stock rows include **Edit** and **Delete** actions on desktop and mobile. Edit opens the medicine details, total stock, and reorder level. Delete asks for confirmation and removes only that institution's stock entry, preserving medicine and reservation history. Complete or cancel active reservations before deleting or changing medicine details; stock quantity can still be updated provided it covers reserved units.
@@ -662,7 +664,7 @@ Available stock = Total stock - Reserved stock
 | Cancel reservation | Release reserved units; total stock stays unchanged |
 | Expire reservation | Release reserved units; total stock stays unchanged |
 
-Reservations use a **15-minute hold**. Confirmation does not extend the original expiry time. Expiry is processed when relevant inventory, reservation, recommendation, or location-stock data is read; the notification worker also processes expiry every 30 seconds while running.
+Reservations use a **24-hour (one-day) hold**. New reservations expire 24 hours after creation. Existing reservations retain their recorded expiry time; confirmation does not extend it. Expiry is processed when relevant inventory, reservation, recommendation, or location-stock data is read; the notification worker also processes expiry every 30 seconds while running.
 
 ```mermaid
 stateDiagram-v2

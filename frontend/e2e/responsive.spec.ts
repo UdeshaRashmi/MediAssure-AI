@@ -3,12 +3,13 @@ const longName = "Community hospital and emergency medicine centre with a long i
 const institution = { id: 1, name: longName, location_type: "Hospital", area: "A long address for checking narrow screens, Colombo, Sri Lanka", contact_number: "0111234567", latitude: 6.9271, longitude: 79.8612, is_open: true, opening_hours: "08:00 - 20:00" };
 const inventory = [{ id: 1, pharmacy_name: longName, medicine: "Medicine with a long name and strength 500 mg", generic: "Long generic medicine description", category: "General medicine", stock: 30, reserved: 2, reorder_level: 10, predicted_24h: 0, status: "Healthy", risk: "Low", updated: "2026-10-23T08:00:00Z" }];
 
-async function workspace(page: Page) {
+async function workspace(page: Page, role: "Patient" | "Pharmacist" | "Hospital Staff" | "Admin" = "Hospital Staff") {
   await page.addInitScript(() => localStorage.setItem("mediassure-token", "responsive-test-token"));
   await page.route("**/*", async route => {
     const path = new URL(route.request().url()).pathname;
     let body: unknown;
-    if (path === "/auth/me") body = { id: 1, name: "Staff member with a long display name", email: "averylongaccountaddress@example.test", approved: true, role: "Hospital Staff" };
+    if (path === "/auth/me") body = { id: 1, name: "Staff member with a long display name", email: "averylongaccountaddress@example.test", approved: true, role };
+    else if (path === "/dashboard/summary") body = { active_medicines: 1, low_stock_risk: 0, pending_reservations: 1, transfer_suggestions: 0, api_mode: "database" };
     else if (path === "/medicines/search") body = [{ id: 1, name: "Panadol", strength: "500 mg" }];
     else if (path === "/pharmacies/recommendations") body = Number(new URL(route.request().url()).searchParams.get("quantity")) > 10 ? [] : [{ id: 1, name: "Ruhunu", area: "Colombo", distance_km: 1, travel_time_minutes: 3, contact_number: "0111234567", current_stock: 10, availability_confidence: .9, emergency_rescue_score: 90, verified: false, location_type: "Pharmacy", latitude: 7, longitude: 80, updated_at: "2026-10-23T08:00:00Z" }];
     else if (path === "/inventory") body = inventory;
@@ -22,7 +23,7 @@ async function workspace(page: Page) {
     await route.fulfill({ json: body });
   });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Emergency Request", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: role === "Pharmacist" ? "Pharmacist Dashboard" : role === "Admin" ? "Administration Dashboard" : "Emergency Request", exact: true })).toBeVisible();
 }
 async function navigate(page: Page, name: string) {
   if (page.viewportSize()!.width < 1024) await page.getByRole("button", { name: "Open menu", exact: true }).click();
@@ -245,4 +246,23 @@ test("rebalancing confirms transfers and alerts show honest email status", async
   await page.locator("header select").selectOption("si");
   await expect(page.locator("html")).toHaveAttribute("lang", "si");
   await noOverflow(page);
+});
+
+
+test("each account role displays its own illustration", async ({ page }) => {
+  const cases = [
+    ["Patient", "Patient finding medicine", "patient.png"],
+    ["Pharmacist", "Pharmacist managing medicine stock", "pharmacist.png"],
+    ["Hospital Staff", "Hospital staff managing medical supplies", "hospital-staff.png"],
+    ["Admin", "Administrator coordinating the medicine network", "admin.png"],
+  ] as const;
+  for (const [role, alt, filename] of cases) {
+    await workspace(page, role);
+    if (page.viewportSize()!.width < 1024) await page.getByRole("button", { name: "Open menu", exact: true }).click();
+    const image = page.locator("#workspace-navigation").getByRole("img", { name: alt, exact: true });
+    await expect(image).toBeVisible();
+    await expect(image).toHaveAttribute("src", new RegExp(filename.replace(".", "\\.")));
+    await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
+    await noOverflow(page);
+  }
 });

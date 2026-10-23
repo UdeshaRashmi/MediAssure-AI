@@ -6,6 +6,7 @@ import { ValidatedForm, ValidatedInput } from "../components/ValidatedForm";
 import { createInventory, deleteInventory, fetchMyLocation, updateInventory, updateLocation } from "../services/api";
 import { useI18n } from "../i18n";
 import { MAX_STOCK } from "../validation";
+import { RoleIllustration } from "../components/RoleIllustration";
 
 export function InventoryPage({ items, user, onChanged }: { items: InventoryItem[]; user: SessionUser; onChanged: () => void }) {
   const { t } = useI18n();
@@ -77,7 +78,10 @@ export function InventoryPage({ items, user, onChanged }: { items: InventoryItem
 
   return <div className="grid gap-5">
     <Panel title="My medicine stock" action={<button className="action" disabled={locationLoading || locationFailed || busy} onClick={() => { setEditing(null); setMessage(""); setOpen(true); }}>{t("Add medicine")}</button>}>
-      <p className="mb-4 text-sm">{t("Keep your available medicine stock up to date so people can find the correct pickup location.")}</p>
+      <div className="mb-4 grid grid-cols-[minmax(0,1fr)_5rem] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_9rem]">
+        <p className="min-w-0 text-sm leading-relaxed">{t("Keep your available medicine stock up to date so people can find the correct pickup location.")}</p>
+        <RoleIllustration role={user.role} decorative className="aspect-square w-full rounded-xl bg-[#F2F7F7]" />
+      </div>
       {locationLoading && <LoadingState label="Loading data..." />}
       {location && items.length > 0 && <p className="mb-3 font-bold">{t(location.location_type)}: {location.name}</p>}
       {items.length ? <InventoryTable items={items} actions={item => <>
