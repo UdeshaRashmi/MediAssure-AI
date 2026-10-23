@@ -1,3 +1,4 @@
+import { LocationPicker } from "../components/LocationPicker";
 import { useEffect, useState, type FormEvent } from "react";
 import type { InventoryItem, MedicineLocation, SessionUser } from "../types";
 import { EmptyState, InventoryTable, LoadingState, Modal, Panel } from "../components/ui";
@@ -93,14 +94,13 @@ export function InventoryPage({ items, user, onChanged }: { items: InventoryItem
 
 function LocationFields({ location, registration = false, hospital }: { location?: MedicineLocation; registration?: boolean; hospital: boolean }) {
   const { t } = useI18n();
+  const [latitude, setLatitude] = useState(String(location?.latitude ?? ""));
+  const [longitude, setLongitude] = useState(String(location?.longitude ?? ""));
   return <>
     <label>{t(hospital ? "Hospital / institution name" : "Pharmacy name")}<ValidatedInput className="field" name={registration ? "pharmacy_name" : "name"} defaultValue={location?.name} maxLength={160} required /></label>
     <label>{t("Address")}<ValidatedInput className="field" name="area" defaultValue={location?.area} maxLength={255} required /></label>
     <label>{t("Phone")}<ValidatedInput className="field" name="contact_number" type="tel" defaultValue={location?.contact_number} maxLength={32} required /></label>
-    <div className="grid grid-cols-2 gap-3">
-      <label>{t("Latitude")}<ValidatedInput className="field" name="latitude" type="number" step="any" min={-90} max={90} defaultValue={location?.latitude ?? ""} required /></label>
-      <label>{t("Longitude")}<ValidatedInput className="field" name="longitude" type="number" step="any" min={-180} max={180} defaultValue={location?.longitude ?? ""} required /></label>
-    </div>
+    <LocationPicker institution latitude={latitude} longitude={longitude} onChange={(lat, lng) => { setLatitude(lat); setLongitude(lng); }} />
     <label>{t("Current status")}<select name="is_open" className="field" defaultValue={location?.is_open ? "true" : "false"}><option value="false">{t("Closed")}</option><option value="true">{t("Open")}</option></select></label>
     <label>{t("Opening hours")}<ValidatedInput className="field" name="opening_hours" defaultValue={location?.opening_hours} maxLength={255} /></label>
   </>;

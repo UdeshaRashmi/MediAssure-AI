@@ -107,6 +107,12 @@ The full Docker development stack can also be started with `docker compose up --
 
 Sign out before changing accounts. The database volume is persistent; restarting containers does not erase your records.
 
+## Detect location automatically
+
+Every coordinate-entry form has a **Use my location** button: patient/hospital medicine search and emergency requests, first-time pharmacy/hospital inventory registration, and institution pickup-location editing. Click it and allow the browser permission prompt. Coordinates are filled automatically, with an estimated accuracy and a map link for checking the result. Save or search explicitly after reviewing the location.
+
+For an institution, use detection while physically at the pharmacy/hospital. Device location is an estimate and does not automatically fill the street address. Existing coordinates are preserved if permission is denied, the request times out, or detection fails. Manual coordinate entry remains available. Browser geolocation needs `localhost` or HTTPS; a plain HTTP LAN address may not support it.
+
 ## Form validation
 
 Forms show errors beside the relevant field in English or Sinhala and focus the first invalid field on submit. Required text cannot contain only spaces. Email format, matching passwords (at least six non-padding characters), field lengths, and optional phone format are checked. Phone numbers accept an optional leading `+`, spaces, parentheses, and hyphens, with 7 to 15 digits.

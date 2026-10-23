@@ -2,7 +2,7 @@ import { createContext, useContext, useId, useState, type ComponentProps } from 
 import { fieldError } from "../validation";
 import { useI18n } from "../i18n";
 
-const Validation = createContext<{ errors: Record<string, string>; id: string }>({ errors: {}, id: "" });
+const Validation = createContext<{ errors: Record<string, string>; id: string; clearFields: (names: string[]) => void }>({ errors: {}, id: "", clearFields: () => {} });
 function errorFor(input: HTMLInputElement, form: HTMLFormElement) {
   const password = form.elements.namedItem("password");
   if (input.validity.badInput) return "Enter a valid number.";
@@ -32,7 +32,7 @@ export function ValidatedForm({ onSubmit, onChange, children, ...props }: Compon
     }
     onSubmit?.(event);
   }
-  return <Validation.Provider value={{ errors, id }}><form {...props} noValidate onSubmit={validate} onChange={event => {
+  return <Validation.Provider value={{ errors, id, clearFields: names => setErrors(current => { const next = { ...current }; for (const name of names) delete next[name]; return next; }) }}><form {...props} noValidate onSubmit={validate} onChange={event => {
     const input = event.target;
     if (input instanceof HTMLInputElement && input.name) setErrors(current => {
       const next = { ...current }; delete next[input.name];
@@ -55,3 +55,5 @@ export function ValidatedInput(props: ComponentProps<"input">) {
   const errorId = `${id}-${props.name}-error`;
   return <><input {...props} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : props["aria-describedby"]} />{error && <span id={errorId} className="mt-1 block text-sm text-red-700" role="alert">{t(error)}</span>}</>;
 }
+
+export function useFieldValidation() { return useContext(Validation); }

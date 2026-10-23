@@ -1,3 +1,4 @@
+import { LocationPicker } from "./components/LocationPicker";
 import { ValidatedForm, ValidatedInput } from "./components/ValidatedForm";
 import { useEffect, useState } from "react";
 import { Sidebar, TopBar } from "./components/Layout";
@@ -94,9 +95,7 @@ export function App() {
           {["finder", "request"].includes(page) && <ValidatedForm className="mb-5 grid gap-3 rounded border bg-white p-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); setError(""); setSearch({ query, latitude: Number(latitude), longitude: Number(longitude), quantity: Number(quantity) }); }}>
             <label>{t("Medicine needed")}<ValidatedInput className="field" name="query" maxLength={160} value={query} onChange={e => setQuery(e.target.value)} required /></label>
             <label>{t("Quantity")}<ValidatedInput className="field" name="quantity" type="number" min={1} max={2147483647} value={quantity} onChange={e => setQuantity(e.target.value)} required /></label>
-            <label>{t("Latitude")}<ValidatedInput className="field" name="latitude" type="number" step="any" min={-90} max={90} value={latitude} onChange={e => setLatitude(e.target.value)} required /></label>
-            <label>{t("Longitude")}<ValidatedInput className="field" name="longitude" type="number" step="any" min={-180} max={180} value={longitude} onChange={e => setLongitude(e.target.value)} required /></label>
-            <button type="button" className="secondary" onClick={() => { if (!navigator.geolocation) { setError("Location access is unavailable. Enter coordinates manually."); return; } navigator.geolocation.getCurrentPosition(position => { setLatitude(String(position.coords.latitude)); setLongitude(String(position.coords.longitude)); }, () => setError("Location access is unavailable. Enter coordinates manually.")); }}>{t("Use my location")}</button>
+            <LocationPicker className="sm:col-span-2" latitude={latitude} longitude={longitude} onChange={(lat, lng) => { setLatitude(lat); setLongitude(lng); }} />
             <button className="action" disabled={matchesLoading}>{t("Search pharmacies")}</button>
           </ValidatedForm>}
           {page === "request" && <RequestPage {...finderProps} />}

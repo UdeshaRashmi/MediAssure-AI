@@ -205,5 +205,15 @@
   "Medicine already exists at your institution": "මෙම ඖෂධය ඔබේ ආයතනයේ දැනටමත් ලියාපදිංචි කර ඇත",
   "Add inventory to register your institution first": "ආයතනය ලියාපදිංචි කිරීමට පළමුව තොග එක් කරන්න",
   "Medicine location is closed": "ඖෂධ ලබාගැනීමේ ස්ථානය වසා ඇත",
-  "Only the supplying institution can confirm or complete reservations": "වෙන්කිරීම් තහවුරු කිරීමට හෝ සම්පූර්ණ කිරීමට ඖෂධ සපයන ආයතනයට පමණක් අවසර ඇත"
+  "Only the supplying institution can confirm or complete reservations": "වෙන්කිරීම් තහවුරු කිරීමට හෝ සම්පූර්ණ කිරීමට ඖෂධ සපයන ආයතනයට පමණක් අවසර ඇත",
+  "Detecting location...": "ස්ථානය හඳුනාගනිමින්...",
+  "Open the app on localhost or a secure connection to detect your location.": "ස්ථානය හඳුනාගැනීමට යෙදුම localhost හෝ ආරක්ෂිත සම්බන්ධතාවයකින් විවෘත කරන්න.",
+  "Your browser does not support location detection. Enter coordinates manually.": "ඔබේ බ්‍රවුසරය ස්ථානය හඳුනාගැනීමට සහාය නොදක්වයි. ඛණ්ඩාංක අතින් ඇතුළත් කරන්න.",
+  "Location could not be determined. Try again or enter coordinates manually.": "ස්ථානය හඳුනාගත නොහැකි විය. නැවත උත්සාහ කරන්න හෝ ඛණ්ඩාංක අතින් ඇතුළත් කරන්න.",
+  "Location permission was denied. Allow location in your browser settings and try again.": "ස්ථානය ලබාගැනීමට අවසර ලැබී නැත. බ්‍රවුසරයේ සැකසුම්වලින් අවසර දී නැවත උත්සාහ කරන්න.",
+  "Location detection timed out. Try again or enter coordinates manually.": "ස්ථානය හඳුනාගැනීමේ කාලය අවසන් විය. නැවත උත්සාහ කරන්න හෝ ඛණ්ඩාංක අතින් ඇතුළත් කරන්න.",
+  "Use this while at your pharmacy or hospital. Check the map before saving the pickup location.": "ඔබේ ඖෂධසැලේ හෝ රෝහලේ සිට මෙය භාවිත කරන්න. ලබාගැනීමේ ස්ථානය සුරැකීමට පෙර සිතියමෙන් පරීක්ෂා කරන්න.",
+  "Allow location access to fill your coordinates automatically. You can also enter them manually.": "ඛණ්ඩාංක ස්වයංක්‍රීයව පිරවීමට ස්ථාන අවසරය ලබාදෙන්න. අවශ්‍ය නම් ඒවා අතින් ද ඇතුළත් කළ හැක.",
+  "Location detected. Estimated accuracy (metres)": "ස්ථානය හඳුනාගන්නා ලදී. ඇස්තමේන්තුගත නිරවද්‍යතාව (මීටර්)",
+  "Check location on map": "සිතියමෙන් ස්ථානය පරීක්ෂා කරන්න"
 }
