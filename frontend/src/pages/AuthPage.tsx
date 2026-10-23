@@ -20,7 +20,7 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
     catch (error) { setError(error instanceof Error ? error.message : "Request failed. Please try again."); }
     finally { setBusy(false); }
   }
-  const details: Record<SessionUser["role"], string> = { Patient: "Find medicines and manage your reservations", Pharmacist: "Manage your pharmacy inventory and patient pickups", "Hospital Staff": "Find medicines and coordinate hospital reservations", Admin: "Review staff accounts and oversee the pharmacy network" };
+  const details: Record<SessionUser["role"], string> = { Patient: "Find medicines and manage your reservations", Pharmacist: "Manage your pharmacy inventory and patient pickups", "Hospital Staff": "Manage hospital stock, find medicines, and coordinate reservations", Admin: "Review staff accounts and oversee the pharmacy network" };
   return <main className="min-h-screen bg-[#F2F7F7] px-4 py-6 text-[#092C46]"><div className="mx-auto flex max-w-6xl justify-end"><LanguageSwitch /></div><div className="mx-auto grid max-w-6xl items-center gap-8 py-8 lg:grid-cols-2"><section><img src={logo} alt="MediAssure" className="h-32 w-32 object-contain" /><h1 className="mt-4 text-4xl font-bold">{t("Medicine availability, connected to your community")}</h1><p className="mt-4">{t("Use your own pharmacy stock and reservations. No sample records or automatic prescriptions.")}</p></section>
     <ValidatedForm key={mode} onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-6 shadow-sm">
       <h2 className="text-2xl font-bold">{t(mode === "signin" ? "Sign in" : "Create account")}</h2>

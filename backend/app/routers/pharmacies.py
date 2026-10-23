@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
+from geoalchemy2 import WKTElement
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.core.access import approved_user, require_roles
 from app.db.session import get_db
 from app.models.inventory import Inventory
 from app.models.medicine import Medicine
 from app.models.pharmacy import Pharmacy
 from app.models.user import User, UserRole
-from app.schemas.validation import MAX_STOCK
-from app.services.records import distance_km, expire_reservations
+from app.schemas.validation import MAX_STOCK, validate_phone
+from app.services.records import audit, distance_km, expire_reservations, location_data, location_type
 
 router = APIRouter(dependencies=[Depends(approved_user)])
 
@@ -33,7 +34,9 @@ def recommend_pharmacies(medicine_id: int = Query(gt=0, le=MAX_STOCK), latitude:
                         "distance_km": round(distance, 2), "travel_time_minutes": max(1, round(distance / 25 * 60)),
                         "contact_number": pharmacy.contact_number or "", "current_stock": available,
                         "availability_confidence": confidence, "emergency_rescue_score": round(confidence * 100 / (1 + distance / 10), 2),
-                        "is_open": pharmacy.is_open, "verified": False})
+                        "is_open": pharmacy.is_open, "verified": False,
+                        "location_type": location_type(pharmacy), "latitude": pharmacy.latitude,
+                        "longitude": pharmacy.longitude, "updated_at": row.last_updated_at.isoformat()})
     db.commit()
     return sorted(matches, key=lambda item: item["emergency_rescue_score"], reverse=True)
 
@@ -49,22 +52,45 @@ def list_pharmacies(db: Session = Depends(get_db)):
                      "status": "Online" if pharmacy.is_open else "Offline", "open_until": pharmacy.opening_hours or "Not provided",
                      "stock_health": health, "urgent_gaps": sum(max(0, i.reorder_level - (i.current_stock-i.reserved_stock)) for i in items),
                      "last_sync": max((i.last_updated_at.isoformat() for i in items), default=pharmacy.created_at.isoformat()),
-                     "latitude": pharmacy.latitude, "longitude": pharmacy.longitude})
+                     "latitude": pharmacy.latitude, "longitude": pharmacy.longitude, "location_type": location_type(pharmacy)})
     db.commit()
     return rows
 
 
+operator = require_roles(UserRole.PHARMACIST, UserRole.HOSPITAL_STAFF, UserRole.ADMIN)
+
+
+@router.get("/mine")
+def my_location(user: User = Depends(operator), db: Session = Depends(get_db)):
+    location = db.scalar(select(Pharmacy).where(Pharmacy.owner_user_id == user.id))
+    return location_data(location) if location else None
+
+
 class PharmacyUpdate(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(str_strip_whitespace=True, allow_inf_nan=False)
     is_open: bool
     opening_hours: str = Field(default="", max_length=255)
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    area: str | None = Field(default=None, min_length=1, max_length=255)
+    contact_number: str | None = Field(default=None, min_length=1, max_length=32)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    @field_validator("contact_number")
+    @classmethod
+    def valid_contact(cls, value):
+        return validate_phone(value) if value is not None else None
 
 
 @router.patch("/mine")
-def update_pharmacy(payload: PharmacyUpdate, user: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.ADMIN)), db: Session = Depends(get_db)):
-    pharmacy = db.scalar(select(Pharmacy).where(Pharmacy.owner_user_id == user.id))
-    if pharmacy is None:
-        raise HTTPException(404, "Add inventory to register your pharmacy first")
-    pharmacy.is_open, pharmacy.opening_hours = payload.is_open, payload.opening_hours
+def update_pharmacy(payload: PharmacyUpdate, user: User = Depends(operator), db: Session = Depends(get_db)):
+    location = db.scalar(select(Pharmacy).where(Pharmacy.owner_user_id == user.id).with_for_update())
+    if location is None:
+        raise HTTPException(404, "Add inventory to register your institution first")
+    for field, value in payload.model_dump(exclude_unset=True, exclude_none=True).items():
+        setattr(location, "address" if field == "area" else field, value)
+    if location.latitude is not None and location.longitude is not None:
+        location.location = WKTElement(f"POINT({location.longitude} {location.latitude})", srid=4326)
+    audit(db, user, "Updated medicine location", location.name)
     db.commit()
-    return {"is_open": pharmacy.is_open, "opening_hours": pharmacy.opening_hours}
+    return location_data(location)

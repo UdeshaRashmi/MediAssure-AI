@@ -21,7 +21,7 @@ class ReservationCreate(BaseModel):
 @router.get("")
 def list_reservations(user: User = Depends(approved_user), db: Session = Depends(get_db)):
     expire_reservations(db)
-    rows = [reservation_data(row) for row in db.scalars(reservation_query(user)).all()]
+    rows = [reservation_data(row, user) for row in db.scalars(reservation_query(user)).all()]
     db.commit()
     return rows
 
@@ -35,7 +35,7 @@ def create_reservation(payload: ReservationCreate,
     if stock is None:
         raise HTTPException(404, "Inventory not found")
     if not stock.pharmacy.is_open:
-        raise HTTPException(409, "Pharmacy is closed")
+        raise HTTPException(409, "Medicine location is closed")
     if stock.current_stock - stock.reserved_stock < payload.quantity:
         raise HTTPException(409, "Insufficient available stock")
     row = Reservation(user_id=user.id, pharmacy_id=stock.pharmacy_id, medicine_id=stock.medicine_id,
@@ -45,7 +45,7 @@ def create_reservation(payload: ReservationCreate,
     db.add(row)
     audit(db, user, "Created reservation", stock.medicine.name)
     db.commit()
-    return reservation_data(row)
+    return reservation_data(row, user)
 
 
 class ReservationUpdate(BaseModel):
@@ -63,8 +63,9 @@ def update_reservation(reservation_id: int, payload: ReservationUpdate,
                    ReservationStatus.CONFIRMED: {ReservationStatus.COMPLETED, ReservationStatus.CANCELLED}}
     if payload.status not in transitions.get(row.status, set()):
         raise HTTPException(409, "Invalid reservation status transition")
-    if user.role in (UserRole.USER, UserRole.HOSPITAL_STAFF) and payload.status != ReservationStatus.CANCELLED:
-        raise HTTPException(403, "Only pharmacy operators can confirm or complete reservations")
+    can_manage = user.role == UserRole.ADMIN or row.pharmacy.owner_user_id == user.id
+    if not can_manage and payload.status != ReservationStatus.CANCELLED:
+        raise HTTPException(403, "Only the supplying institution can confirm or complete reservations")
     stock = db.scalar(select(Inventory).where(Inventory.pharmacy_id == row.pharmacy_id,
                       Inventory.medicine_id == row.medicine_id).with_for_update())
     if payload.status in (ReservationStatus.CANCELLED, ReservationStatus.COMPLETED):
@@ -74,4 +75,4 @@ def update_reservation(reservation_id: int, payload: ReservationUpdate,
     row.status = payload.status
     audit(db, user, "Updated reservation", str(row.id))
     db.commit()
-    return reservation_data(row)
+    return reservation_data(row, user)

@@ -192,7 +192,7 @@ class ApiTests(unittest.TestCase):
         self.request("POST", f"/admin/users/{staff['user']['id']}/approve", token=self.admin_token)
         self.token = staff["access_token"]
         self.assertEqual(self.request("GET", "/pharmacies")[0], 200)
-        self.assertEqual(self.inventory()[0], 403)
+        self.assertEqual(self.inventory(pharmacy_name="Test Hospital")[0], 201)
         self.db.close()
         self.db = Session(bind=self.connection, join_transaction_mode="create_savepoint")
         self.assertEqual(self.request("GET", "/auth/me")[0], 200)
@@ -222,6 +222,76 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertEqual(row["medicine"], name)
         self.assertEqual(self.request("GET", "/inventory")[1][0]["medicine"], name)
+
+    def hospital(self, email="hospital@example.test"):
+        _, payload = self.signup("Hospital Staff", email)
+        response = self.request("POST", f"/admin/users/{payload['user']['id']}/approve", token=self.admin_token)
+        self.assertEqual(response[0], 200)
+        return payload["access_token"]
+
+    def test_hospital_owns_its_stock_and_cannot_update_pharmacy_stock(self):
+        self.setup_stock()
+        hospital = self.hospital()
+        self.token = hospital
+        self.assertEqual(self.request("GET", "/inventory")[1], [])
+        status, stock = self.inventory(pharmacy_name="Test Hospital", stock=8)
+        self.assertEqual(status, 201)
+        self.assertEqual(self.request("GET", "/pharmacies/mine")[1]["location_type"], "Hospital")
+        self.assertEqual(self.request("PATCH", f"/inventory/{stock['id']}", {"stock": 9, "reorder_level": 1})[0], 200)
+        self.assertEqual(self.request("PATCH", f"/inventory/{self.stock['id']}", {"stock": 99, "reorder_level": 1})[0], 404)
+        self.assertEqual(self.request("PATCH", f"/inventory/{stock['id']}", {"stock": 99, "reorder_level": 1}, token=self.pharmacist)[0], 404)
+        other = self.hospital("another-hospital@example.test")
+        self.assertEqual(self.request("PATCH", f"/inventory/{stock['id']}", {"stock": 99, "reorder_level": 1}, token=other)[0], 404)
+        self.assertEqual(self.request("GET", "/inventory", token=other)[1], [])
+        self.assertEqual(self.db.get(Inventory, stock["id"]).current_stock, 9)
+
+    def test_hospital_stock_search_and_reservation_lifecycle(self):
+        self.setup_stock()
+        hospital = self.hospital()
+        self.token = hospital
+        _, stock = self.inventory(pharmacy_name="Test Hospital", stock=4)
+        self.token = self.patient
+        medicines = self.request("GET", "/medicines/search?query=Medicine")[1]
+        path = f"/pharmacies/recommendations?medicine_id={medicines[0]['id']}&latitude=6.9271&longitude=79.8612"
+        matches = self.request("GET", path)[1]
+        hospitals = [row for row in matches if row["location_type"] == "Hospital"]
+        self.assertEqual(len(hospitals), 1)
+        self.assertEqual(hospitals[0]["id"], stock["id"])
+        self.assertEqual(hospitals[0]["latitude"], 6.9271)
+        self.assertIn("updated_at", hospitals[0])
+        _, reservation = self.request("POST", "/reservations", {"inventory_id": stock["id"], "quantity": 2})
+        hospital_reservations = self.request("GET", "/reservations", token=hospital)[1]
+        self.assertEqual(hospital_reservations[0]["id"], reservation["id"])
+        self.assertTrue(hospital_reservations[0]["can_manage"])
+        for state in ("confirmed", "completed"):
+            self.assertEqual(self.request("PATCH", f"/reservations/{reservation['id']}", {"status": state}, token=hospital)[0], 200)
+        self.assertEqual(self.db.get(Inventory, stock["id"]).current_stock, 2)
+        self.request("PATCH", f"/inventory/{stock['id']}", {"stock": 0, "reorder_level": 1}, token=hospital)
+        self.assertFalse(any(row["id"] == stock["id"] for row in self.request("GET", path)[1]))
+
+    def test_hospital_cannot_confirm_reservation_created_at_another_institution(self):
+        self.setup_stock()
+        hospital = self.hospital()
+        _, row = self.request("POST", "/reservations", {"inventory_id": self.stock["id"], "quantity": 1}, token=hospital)
+        self.assertFalse(row["can_manage"])
+        self.assertEqual(self.request("PATCH", f"/reservations/{row['id']}", {"status": "confirmed"}, token=hospital)[0], 403)
+
+    def test_own_location_edit_updates_search_without_changing_other_locations(self):
+        self.setup_stock()
+        hospital = self.hospital()
+        self.token = hospital
+        _, stock = self.inventory(pharmacy_name="Test Hospital", stock=8)
+        changes = {"is_open": True, "name": "Updated Hospital", "area": "Updated Address", "contact_number": "0771234567", "latitude": 7.0, "longitude": 80.0}
+        self.assertEqual(self.request("PATCH", "/pharmacies/mine", changes)[0], 200)
+        own = self.request("GET", "/pharmacies/mine")[1]
+        self.assertEqual((own["name"], own["latitude"]), ("Updated Hospital", 7.0))
+        pharmacy = self.request("GET", "/pharmacies/mine", token=self.pharmacist)[1]
+        self.assertEqual(pharmacy["name"], "Test Pharmacy")
+        path = f"/pharmacies/recommendations?medicine_id={stock['medicine_id']}&latitude=7&longitude=80"
+        result = next(row for row in self.request("GET", path, token=self.patient)[1] if row["id"] == stock["id"])
+        self.assertEqual((result["name"], result["area"], result["distance_km"]), ("Updated Hospital", "Updated Address", 0))
+        self.assertEqual(self.request("PATCH", "/pharmacies/mine", {"is_open": True, "latitude": 91})[0], 422)
+        self.assertEqual(self.request("GET", "/pharmacies/mine", token=self.patient)[0], 403)
 
     def test_readiness_hides_database_errors(self):
         with patch("app.routers.health.engine") as mocked:

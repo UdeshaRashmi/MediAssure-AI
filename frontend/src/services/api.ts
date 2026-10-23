@@ -1,4 +1,4 @@
-import type { AuditEvent, DemandForecast, InventoryItem, NetworkPharmacy, OperationalAlert, PharmacyMatch, Reservation, SessionUser, TransferSuggestion, VerifiedAlternative } from "../types";
+import type { AuditEvent, DemandForecast, InventoryItem, MedicineLocation, NetworkPharmacy, OperationalAlert, PharmacyMatch, Reservation, SessionUser, TransferSuggestion, VerifiedAlternative } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001";
 export type ApiStatus = "checking" | "online" | "offline";
@@ -42,11 +42,12 @@ export async function fetchInventory(): Promise<InventoryItem[]> {
 }
 export function createInventory(body: Record<string, unknown>) { return request("/inventory", "POST", body); }
 export function updateInventory(id: number, stock: number, reorder_level: number) { return request(`/inventory/${id}`, "PATCH", { stock, reorder_level }); }
-export function updatePharmacy(is_open: boolean, opening_hours: string) { return request("/pharmacies/mine", "PATCH", { is_open, opening_hours }); }
+export function fetchMyLocation() { return request<MedicineLocation | null>("/pharmacies/mine"); }
+export function updateLocation(body: Record<string, unknown>) { return request<MedicineLocation>("/pharmacies/mine", "PATCH", body); }
 
 export async function fetchReservations(): Promise<Reservation[]> {
-  const rows = await request<{ id: string; pharmacy_name: string; patient: string; medicine: string; quantity: number; expires_at: string; status: string }[]>("/reservations");
-  return rows.map(i => ({ id: i.id, pharmacyName: i.pharmacy_name, patient: i.patient, medicine: i.medicine, qty: i.quantity, eta: i.expires_at, status: i.status }));
+  const rows = await request<{ id: string; can_manage: boolean; pharmacy_name: string; patient: string; medicine: string; quantity: number; expires_at: string; status: string }[]>("/reservations");
+  return rows.map(i => ({ id: i.id, canManage: i.can_manage, pharmacyName: i.pharmacy_name, patient: i.patient, medicine: i.medicine, qty: i.quantity, eta: i.expires_at, status: i.status }));
 }
 export function createReservation(inventory_id: number, quantity: number) { return request("/reservations", "POST", { inventory_id, quantity }); }
 export function updateReservation(id: string, status: string) { return request(`/reservations/${id}`, "PATCH", { status }); }
@@ -56,14 +57,14 @@ export async function fetchPharmacyRecommendations(query: string, latitude: numb
   const medicines = await request<{ id: number; name: string; strength: string }[]>(`/medicines/search?query=${encodeURIComponent(query)}`);
   if (!medicines.length) return [];
   const results = await Promise.all(medicines.map(async medicine => {
-    const rows = await request<{ id: number; name: string; area: string; distance_km: number; travel_time_minutes: number; contact_number: string; current_stock: number; availability_confidence: number; emergency_rescue_score: number; verified: boolean }[]>(`/pharmacies/recommendations?medicine_id=${medicine.id}&latitude=${latitude}&longitude=${longitude}&quantity=${quantity}`);
-    return rows.map(i => ({ inventoryId: i.id, name: i.name, area: i.area, distance: `${i.distance_km.toFixed(1)} km`, eta: `${i.travel_time_minutes} min`, phone: i.contact_number, medicine: [medicine.name, medicine.strength].filter(Boolean).join(" "), stock: i.current_stock, confidence: Math.round(i.availability_confidence * 100), rescueScore: Math.round(i.emergency_rescue_score), verified: i.verified }));
+    const rows = await request<{ id: number; location_type: "Pharmacy" | "Hospital"; latitude: number; longitude: number; updated_at: string; name: string; area: string; distance_km: number; travel_time_minutes: number; contact_number: string; current_stock: number; availability_confidence: number; emergency_rescue_score: number; verified: boolean }[]>(`/pharmacies/recommendations?medicine_id=${medicine.id}&latitude=${latitude}&longitude=${longitude}&quantity=${quantity}`);
+    return rows.map(i => ({ inventoryId: i.id, locationType: i.location_type, latitude: i.latitude, longitude: i.longitude, updatedAt: i.updated_at, name: i.name, area: i.area, distance: `${i.distance_km.toFixed(1)} km`, eta: `${i.travel_time_minutes} min`, phone: i.contact_number, medicine: [medicine.name, medicine.strength].filter(Boolean).join(" "), stock: i.current_stock, confidence: Math.round(i.availability_confidence * 100), rescueScore: Math.round(i.emergency_rescue_score), verified: i.verified }));
   }));
   return results.flat().sort((a, b) => b.rescueScore - a.rescueScore);
 }
 export async function fetchNetworkPharmacies(): Promise<NetworkPharmacy[]> {
-  const rows = await request<{ name: string; area: string; status: NetworkPharmacy["status"]; open_until: string; stock_health: number; urgent_gaps: number; last_sync: string; latitude: number; longitude: number }[]>("/pharmacies");
-  return rows.map(i => ({ ...i, openUntil: i.open_until, stockHealth: i.stock_health, urgentGaps: i.urgent_gaps, lastSync: i.last_sync }));
+  const rows = await request<{ name: string; location_type: "Pharmacy" | "Hospital"; area: string; status: NetworkPharmacy["status"]; open_until: string; stock_health: number; urgent_gaps: number; last_sync: string; latitude: number; longitude: number }[]>("/pharmacies");
+  return rows.map(i => ({ ...i, locationType: i.location_type, openUntil: i.open_until, stockHealth: i.stock_health, urgentGaps: i.urgent_gaps, lastSync: i.last_sync }));
 }
 export function fetchAlerts() { return request<OperationalAlert[]>("/operations/alerts"); }
 export function fetchAuditEvents() { return request<AuditEvent[]>("/operations/audit-events"); }

@@ -28,7 +28,23 @@ export type InventoryItem = {
   updated: string;
 };
 
+export type MedicineLocation = {
+  id: number;
+  name: string;
+  location_type: "Pharmacy" | "Hospital";
+  area: string;
+  contact_number: string;
+  latitude: number | null;
+  longitude: number | null;
+  is_open: boolean;
+  opening_hours: string;
+};
+
 export type PharmacyMatch = {
+  locationType: "Pharmacy" | "Hospital";
+  latitude: number;
+  longitude: number;
+  updatedAt: string;
   inventoryId: number;
   name: string;
   area: string;
@@ -43,6 +59,7 @@ export type PharmacyMatch = {
 };
 
 export type Reservation = {
+  canManage: boolean;
   pharmacyName: string;
   id: string;
   patient: string;
@@ -77,6 +94,7 @@ export type DemandForecast = {
 };
 
 export type NetworkPharmacy = {
+  locationType: "Pharmacy" | "Hospital";
   name: string;
   area: string;
   status: "Online" | "Delayed" | "Offline";

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func
+from geoalchemy2 import WKTElement
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
@@ -14,7 +15,7 @@ from app.schemas.validation import MAX_STOCK
 from app.services.records import audit, expire_reservations, inventory_data, inventory_query
 
 router = APIRouter()
-operator = require_roles(UserRole.PHARMACIST, UserRole.ADMIN)
+operator = require_roles(UserRole.PHARMACIST, UserRole.HOSPITAL_STAFF, UserRole.ADMIN)
 
 
 @router.get("")
@@ -40,15 +41,16 @@ def create_inventory_item(payload: InventoryCreate, user: User = Depends(operato
         pharmacy = Pharmacy(owner_user_id=user.id, name=payload.pharmacy_name,
                             address=payload.area, latitude=payload.latitude, longitude=payload.longitude,
                             contact_number=payload.contact_number, is_open=payload.is_open,
-                            opening_hours=payload.opening_hours)
+                            opening_hours=payload.opening_hours,
+                            location=WKTElement(f"POINT({payload.longitude} {payload.latitude})", srid=4326))
         db.add(pharmacy)
         try:
             db.flush()
         except IntegrityError:
             db.rollback()
-            raise HTTPException(409, "Pharmacy setup changed; retry the request") from None
+            raise HTTPException(409, "Institution setup changed; retry the request") from None
     elif pharmacy.name.casefold() != payload.pharmacy_name.casefold():
-        raise HTTPException(409, "Use your registered pharmacy name")
+        raise HTTPException(409, "Use your registered institution name")
     medicine = db.scalar(select(Medicine).where(func.lower(Medicine.name) == payload.medicine.lower(),
                             func.lower(Medicine.strength) == payload.strength.lower(), func.lower(Medicine.generic_name) == payload.generic.lower()))
     if medicine is None:
@@ -64,7 +66,7 @@ def create_inventory_item(payload: InventoryCreate, user: User = Depends(operato
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(409, "Medicine already exists at your pharmacy") from None
+        raise HTTPException(409, "Medicine already exists at your institution") from None
     return inventory_data(item)
 
 

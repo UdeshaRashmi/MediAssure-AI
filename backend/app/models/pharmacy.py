@@ -31,6 +31,7 @@ class Pharmacy(Base):
         server_default=func.now(),
     )
 
+    owner = relationship("User", foreign_keys=[owner_user_id])
     inventory_items = relationship("Inventory", back_populates="pharmacy")
     sales_history = relationship("SalesHistory", back_populates="pharmacy")
     reservations = relationship("Reservation", back_populates="pharmacy")

@@ -28,7 +28,7 @@ export const defaultPageByRole: Record<SessionUser["role"], Page> = {
 const pagesByRole: Record<SessionUser["role"], Page[]> = {
   Patient: ["request", "finder", "reservations", "settings"],
   Pharmacist: ["dashboard", "inventory", "forecast", "reservations", "rebalancing", "network", "alerts", "settings"],
-  "Hospital Staff": ["request", "finder", "reservations", "network", "alerts", "settings"],
+  "Hospital Staff": ["inventory", "request", "finder", "reservations", "network", "alerts", "settings"],
   Admin: ["dashboard", "inventory", "forecast", "reservations", "rebalancing", "network", "alerts", "settings"],
 };
 
@@ -42,10 +42,10 @@ const allNavGroups: NavGroup[] = [
     ],
   },
   {
-    title: "Pharmacy operations",
+    title: "Medicine supply",
     items: [
       { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-      { id: "inventory", label: "Inventory", icon: <Boxes size={18} /> },
+      { id: "inventory", label: "My medicine stock", icon: <Boxes size={18} /> },
       { id: "forecast", label: "Forecasts", icon: <TrendingUp size={18} /> },
       { id: "rebalancing", label: "Rebalancing", icon: <ArrowRightLeft size={18} /> },
       { id: "network", label: "Network", icon: <Hospital size={18} /> },
