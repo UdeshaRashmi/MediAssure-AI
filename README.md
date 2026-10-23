@@ -746,6 +746,19 @@ npm.cmd run build
 
 The test suite checks form validation, location detection/error handling, role navigation, and map geometry. The production build also checks TypeScript and bundles the application.
 
+### Responsive browser checks
+
+The interface uses a mobile navigation drawer, card-based stock records on small screens, scrollable dialogs, and a stacked map/details layout until there is room for side-by-side panels. Long account and institution names wrap without expanding the page.
+
+To run the browser checks from `frontend`, install the test browser once and run:
+
+```powershell
+npx.cmd playwright install chromium
+npm.cmd run test:e2e
+```
+
+Playwright starts a dedicated Vite server on port `5178` and tests 320px, 390px, 768px, 1024px, and 1440px viewports. It checks English/Sinhala layouts, page overflow, mobile navigation/focus, inventory cards/tables, dialog scrolling, and map controls/details. API responses are intercepted with temporary test fixtures; these browser tests do not create database records. Failure screenshots are written to the ignored `frontend/test-results` folder.
+
 ### Manual acceptance workflow
 
 | Check | Expected result |

@@ -47,3 +47,7 @@ mlruns/
 # Logs
 logs/
 *.log
+
+# Browser test artifacts
+frontend/test-results/
+frontend/playwright-report/

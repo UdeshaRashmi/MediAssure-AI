@@ -77,7 +77,14 @@ export function App() {
     return () => { alive = false; };
   }, [search, user, revision]);
 
-  async function signOut() { try { await api.logoutWithApi(); } catch { /* Local session is cleared even if the server is unavailable. */ } finally { setUser(null); setError(""); } }
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeMenu = () => { if (desktop.matches) setMenuOpen(false); };
+    desktop.addEventListener("change", closeMenu);
+    return () => desktop.removeEventListener("change", closeMenu);
+  }, []);
+
+  async function signOut() { try { await api.logoutWithApi(); } catch { /* Local session is cleared even if the server is unavailable. */ } finally { setUser(null); setMenuOpen(false); setError(""); } }
   if (checkingSession) return <LoadingState label="Checking session..." />;
   if (!user) return <AuthPage onLogin={signedIn} />;
   if (!user.approved) return <main className="mx-auto grid max-w-xl gap-4 p-6"><LanguageSwitch /><h1 className="text-2xl font-bold">{t("Account awaiting approval")}</h1><p>{t("Your staff account has been created. An administrator must approve it before you can access this workspace.")}</p><p>{user.name} ? {t(user.role)}</p><button className="action" onClick={async () => { try { signedIn(await api.fetchCurrentUser()); } catch (error) { setError((error as Error).message); } }}>{t("Check approval")}</button><button className="secondary" onClick={signOut}>{t("Sign out")}</button>{error && <p role="alert">{t(error)}</p>}</main>;
@@ -86,9 +93,9 @@ export function App() {
   const finderProps = { matches, loading: matchesLoading, quantity: search?.quantity ?? Number(quantity), onChanged: refresh };
   return <main className="min-h-screen bg-[#F2F7F7] text-[#092C46]">
     <TopBar apiStatus={error ? "offline" : "online"} user={user} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen(v => !v)} onLogout={signOut} />
-    <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 lg:grid-cols-[260px_1fr]">
-      <Sidebar activePage={page} apiStatus={error ? "offline" : "online"} menuOpen={menuOpen} user={user} onNavigate={next => { if (canAccessPage(user.role, next)) setActivePage(next); setMenuOpen(false); }} />
-      <section className="min-w-0"><div className="mb-5 flex items-center justify-between gap-3"><h1 className="text-2xl font-bold">{t(titles[page])}</h1><button className="secondary" disabled={loading} onClick={refresh}>{t("Refresh")}</button></div>
+    <div className="mx-auto grid max-w-7xl items-start gap-4 px-3 py-4 sm:gap-5 sm:px-5 sm:py-6 lg:grid-cols-[250px_minmax(0,1fr)]">
+      <Sidebar activePage={page} apiStatus={error ? "offline" : "online"} menuOpen={menuOpen} user={user} onClose={() => setMenuOpen(false)} onNavigate={next => { if (canAccessPage(user.role, next)) setActivePage(next); setMenuOpen(false); }} />
+      <section className="workspace-content min-w-0"><div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:mb-5"><h1 className="min-w-0 text-xl font-bold leading-snug sm:text-2xl">{t(titles[page])}</h1><button className="secondary" disabled={loading} onClick={refresh}>{t("Refresh")}</button></div>
         {error && <p className="mb-4 rounded border border-red-300 bg-white p-4" role="alert">{t(error)}</p>}
         {loading && <LoadingState label="Loading data..." />}
         {!loading && <>

@@ -235,5 +235,7 @@
   "Select a map pin or a location below.": "සිතියමේ ලකුණක් හෝ පහත ස්ථානයක් තෝරන්න.",
   "No locations match the current filters.": "තෝරාගත් පෙරහන්වලට ගැළපෙන ස්ථාන නොමැත.",
   "Some locations have missing coordinates or lie outside this map area.": "සමහර ස්ථානවල ඛණ්ඩාංක නොමැති අතර හෝ ඒවා මෙම සිතියම් ප්‍රදේශයෙන් පිටත පිහිටා ඇත.",
-  "Medicine location not found": "ඖෂධ ලබාගැනීමේ ස්ථානය හමු නොවීය"
+  "Medicine location not found": "ඖෂධ ලබාගැනීමේ ස්ථානය හමු නොවීය",
+  "Navigation": "මෙනුව",
+  "Close menu": "මෙනුව වසන්න"
 }

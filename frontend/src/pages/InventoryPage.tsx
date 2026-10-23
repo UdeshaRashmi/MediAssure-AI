@@ -66,7 +66,7 @@ export function InventoryPage({ items, user, onChanged }: { items: InventoryItem
       {locationLoading && <LoadingState label="Loading data..." />}
       {location && <p className="mb-3 font-bold">{t(location.location_type)}: {location.name}</p>}
       {items.length ? <InventoryTable items={items} /> : <EmptyState title="No inventory records" detail="Add your first medicine and your institution details to start sharing availability." />}
-      <div className="mt-4 flex flex-wrap gap-2">{items.map(item => <button className="secondary" key={item.id} disabled={busy} onClick={() => { setEditing(item); setMessage(""); setOpen(true); }}>{t("Update stock")}: {item.medicine}</button>)}</div>
+      <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">{items.map(item => <button className="secondary" key={item.id} disabled={busy} onClick={() => { setEditing(item); setMessage(""); setOpen(true); }}>{t("Update stock")}: {item.medicine}</button>)}</div>
     </Panel>
     {message && <p role="status">{t(message)}</p>}
     {location && <Panel title="Medicine pickup location">
@@ -77,7 +77,7 @@ export function InventoryPage({ items, user, onChanged }: { items: InventoryItem
       </ValidatedForm>
     </Panel>}
     <Modal title={editing ? "Update stock" : "Add medicine"} open={open} onClose={() => { if (!busy) setOpen(false); }}>
-      <ValidatedForm key={`${open}-${editing?.id ?? "new"}`} onSubmit={save} className="grid max-h-[75vh] gap-3 overflow-y-auto pr-2">
+      <ValidatedForm key={`${open}-${editing?.id ?? "new"}`} onSubmit={save} className="grid gap-4">
         {!editing && <>
           {[["medicine", "Medicine", 160], ["generic", "Generic name", 160], ["strength", "Strength", 80], ["category", "Category", 100]].map(([name, label, max]) => <label key={name}>{t(String(label))}<ValidatedInput className="field" name={String(name)} maxLength={Number(max)} required={name !== "strength"} /></label>)}
           <label>{t("Prescription required")}<select className="field" name="requires_prescription"><option value="true">{t("Yes")}</option><option value="false">{t("No")}</option></select></label>
