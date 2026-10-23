@@ -22,6 +22,7 @@ export async function request<T>(path: string, method = "GET", body?: unknown): 
 
 export async function checkApiHealth() { try { await request("/health"); return true; } catch { return false; } }
 export function fetchCurrentUser() { return request<SessionUser>("/auth/me"); }
+export function updateProfile(body: { name: string; email: string; phone: string }) { return request<SessionUser>("/auth/me", "PATCH", body); }
 export async function logoutWithApi() { try { await request("/auth/logout", "POST"); } finally { localStorage.removeItem("mediassure-token"); localStorage.removeItem("mediassure-session"); } }
 
 async function authenticate(path: string, body: unknown) {

@@ -11,7 +11,8 @@ from app.db.session import get_db
 from app.models.session import AuthSession
 from app.models.user import User, UserRole
 from app.schemas.validation import validate_phone
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from app.services.records import audit
 
 router = APIRouter()
 ALLOWED_ROLES = set(ROLE_VALUES)
@@ -101,6 +102,40 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
 
 @router.get("/me")
 def me(user: User = Depends(current_user)):
+    return user_data(user)
+
+
+class ProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=2, max_length=120)
+    email: str = Field(min_length=3, max_length=255)
+    phone: str | None = Field(default=None, max_length=32)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, value):
+        return SignupRequest.strip_name(value)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value):
+        return LoginRequest.normalize_email(value)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def valid_phone(cls, value):
+        return SignupRequest.valid_phone(value)
+
+
+@router.patch("/me")
+def update_profile(payload: ProfileUpdate, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    user.name, user.email, user.phone = payload.name, payload.email, payload.phone
+    audit(db, user, "Updated profile", user.name)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Email address is already in use") from None
     return user_data(user)
 
 

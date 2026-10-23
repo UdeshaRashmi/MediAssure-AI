@@ -75,7 +75,7 @@ export function App() {
       setSummary(nextSummary); setInventory(nextInventory); setReservations(nextReservations); setNetwork(nextNetwork); setAlerts(nextAlerts); setAudit(nextAudit);
     }).catch(error => { if (alive) setError(error instanceof Error ? error.message : "Request failed. Please try again."); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [user, revision]);
+  }, [user?.id, user?.role, user?.approved, revision]);
 
   useEffect(() => {
     if (!user?.approved || !search || !["Patient", "Hospital Staff"].includes(user.role)) return;
@@ -121,7 +121,7 @@ export function App() {
           {page === "alerts" && <div className="grid gap-3">{alerts.length ? alerts.map((alert, index) => <article className="rounded border bg-white p-4" key={index}><h2 className="font-bold">{alert.title}</h2><p>{alert.detail}</p></article>) : <EmptyState title="No alerts" detail="No low-stock alerts from your current inventory." />}</div>}
           {page === "forecast" && <EmptyState title="No forecasts available" detail="Demand forecasting requires recorded sales history and a validated prediction model. No sample predictions are shown." />}
           {page === "rebalancing" && <EmptyState title="No transfer suggestions" detail="Stock transfers are not enabled yet. No sample suggestions are shown." />}
-          {page === "settings" && <SettingsPage auditEvents={audit} user={user} />}
+          {page === "settings" && <SettingsPage auditEvents={audit} user={user} onProfileSaved={setUser} />}
         </>}
       </section>
     </div>

@@ -123,6 +123,7 @@ test("stock rows expose edit and confirmed delete actions", async ({ page }) => 
   await workspace(page);
   let edited: Record<string, unknown> | undefined;
   let deletions = 0;
+  await page.route("**/inventory", route => route.fulfill({ json: deletions ? [] : inventory }));
   await page.route("**/inventory/1", async route => {
     if (route.request().method() === "PATCH") {
       edited = route.request().postDataJSON();
@@ -152,5 +153,52 @@ test("stock rows expose edit and confirmed delete actions", async ({ page }) => 
   await confirmation.getByRole("button", { name: "Delete medicine", exact: true }).click();
   await expect(confirmation).not.toBeVisible();
   expect(deletions).toBe(1);
+  await expect(page.getByText("No inventory records", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Medicine pickup location", exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Emergency Request", exact: true })).toBeVisible();
+  await navigate(page, "My medicine stock");
+  await expect(page.getByText("No inventory records", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Medicine pickup location", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add medicine", exact: true })).toBeEnabled();
+  await noOverflow(page);
+});
+
+
+test("profile edits validate and persist across reloads", async ({ page }) => {
+  await workspace(page);
+  let saved = { id: 1, name: "Staff member with a long display name", email: "averylongaccountaddress@example.test", phone: "0111234567", approved: true, role: "Hospital Staff" };
+  let saves = 0;
+  await page.route("**/auth/me", async route => {
+    if (route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON();
+      saved = { ...saved, ...body }; saves++;
+    }
+    await route.fulfill({ json: saved });
+  });
+  await navigate(page, "Settings");
+  const name = page.locator('input[name="name"]');
+  const email = page.locator('input[name="email"]');
+  const phone = page.locator('input[name="phone"]');
+  await name.fill(" ");
+  await page.getByRole("button", { name: "Save profile", exact: true }).click();
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  expect(saves).toBe(0);
+  await name.fill("Updated staff member");
+  await email.fill("updated@example.test");
+  await phone.fill("0771234567");
+  await page.getByRole("button", { name: "Save profile", exact: true }).click();
+  await expect(page.getByText("Profile updated successfully", { exact: true })).toBeVisible();
+  expect(saves).toBe(1);
+  await expect(name).toHaveValue("Updated staff member");
+  await noOverflow(page);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Emergency Request", exact: true })).toBeVisible();
+  await navigate(page, "Settings");
+  await expect(name).toHaveValue("Updated staff member");
+  await expect(email).toHaveValue("updated@example.test");
+  await expect(phone).toHaveValue("0771234567");
+  await page.locator("header select").selectOption("si");
+  await expect(page.locator("html")).toHaveAttribute("lang", "si");
   await noOverflow(page);
 });

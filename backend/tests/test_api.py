@@ -330,6 +330,16 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.request("DELETE", path, token=self.pharmacist)[0], 404)
         self.assertEqual(self.request("GET", "/inventory")[1][0]["id"], other_stock["id"])
 
+    def test_inventory_edit_rejects_duplicate_identity(self):
+        self.setup_stock()
+        self.token = self.pharmacist
+        _, second = self.inventory(medicine="Second medicine")
+        status, _ = self.request("PATCH", f"/inventory/{second['id']}", {
+            "medicine": "integration medicine", "generic": "Test generic", "strength": "",
+            "category": "Different category", "stock": 3, "reorder_level": 1})
+        self.assertEqual(status, 409)
+        self.assertEqual(len(self.request("GET", "/inventory")[1]), 2)
+
     def test_inventory_active_reservations_protect_delete_and_medicine_changes(self):
         self.setup_stock()
         _, reservation = self.reserve()
@@ -340,6 +350,34 @@ class ApiTests(unittest.TestCase):
         self.request("PATCH", f"/reservations/{reservation['id']}", {"status": "cancelled"})
         self.assertEqual(self.request("DELETE", path, token=self.pharmacist)[0], 204)
         self.assertEqual(self.request("GET", "/reservations")[1][0]["status"], "Cancelled")
+
+    def test_profile_update_persists_and_uses_new_login_email(self):
+        _, result = self.signup()
+        self.token = result["access_token"]
+        payload = {"name": "  Updated Person  ", "email": " NEW-PROFILE@example.test ", "phone": "+94 77 123 4567"}
+        status, saved = self.request("PATCH", "/auth/me", payload)
+        self.assertEqual(status, 200)
+        self.assertEqual(saved["name"], "Updated Person")
+        self.assertEqual(saved["email"], "new-profile@example.test")
+        self.assertEqual(saved["phone"], "+94 77 123 4567")
+        self.assertEqual(saved["id"], result["user"]["id"])
+        self.assertEqual(saved["role"], "Patient")
+        self.assertEqual(self.request("GET", "/auth/me")[1], saved)
+        self.assertEqual(self.request("POST", "/auth/login", {"email": "integration@example.test", "password": "secret123", "role": "Patient"})[0], 401)
+        self.assertEqual(self.request("POST", "/auth/login", {"email": saved["email"], "password": "secret123", "role": "Patient"})[0], 200)
+        self.assertEqual(self.request("PATCH", "/auth/me", {**payload, "phone": ""})[1]["phone"], None)
+
+    def test_profile_validation_uniqueness_and_privilege_protection(self):
+        data = {"name": "Updated Person", "email": "updated@example.test", "phone": ""}
+        self.assertEqual(self.request("PATCH", "/auth/me", data)[0], 401)
+        _, first = self.signup()
+        self.token = first["access_token"]
+        _, other = self.signup(email="other-profile@example.test")
+        for field, value in [("name", " "), ("email", "bad-email"), ("phone", "123"), ("role", "Admin"), ("approved", True), ("id", other["user"]["id"])]:
+            self.assertEqual(self.request("PATCH", "/auth/me", {**data, field: value})[0], 422)
+        self.assertEqual(self.request("PATCH", "/auth/me", {**data, "email": "OTHER-PROFILE@example.test"})[0], 409)
+        self.assertEqual(self.request("GET", "/auth/me")[1]["email"], "integration@example.test")
+        self.assertEqual(self.request("GET", "/auth/me", token=other["access_token"])[1]["email"], "other-profile@example.test")
 
     def test_readiness_hides_database_errors(self):
         with patch("app.routers.health.engine") as mocked:

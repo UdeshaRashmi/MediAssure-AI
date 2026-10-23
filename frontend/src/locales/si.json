@@ -251,5 +251,11 @@
   "Medicine removed from your stock": "ඖෂධය ඔබේ තොගයෙන් ඉවත් කළා",
   "Remove this medicine from your institution stock? Reservation history will be kept.": "මෙම ඖෂධය ඔබේ ආයතනයේ තොගයෙන් ඉවත් කරන්නද? වෙන්කිරීම් ඉතිහාසය සුරැකේ.",
   "Complete or cancel active reservations before deleting stock": "තොගය මැකීමට පෙර සක්‍රිය වෙන්කිරීම් සම්පූර්ණ කරන්න හෝ අවලංගු කරන්න",
-  "Complete or cancel active reservations before changing medicine details": "ඖෂධ තොරතුරු වෙනස් කිරීමට පෙර සක්‍රිය වෙන්කිරීම් සම්පූර්ණ කරන්න හෝ අවලංගු කරන්න"
+  "Complete or cancel active reservations before changing medicine details": "ඖෂධ තොරතුරු වෙනස් කිරීමට පෙර සක්‍රිය වෙන්කිරීම් සම්පූර්ණ කරන්න හෝ අවලංගු කරන්න",
+  "Profile details": "පැතිකඩ තොරතුරු",
+  "Save profile": "පැතිකඩ සුරකින්න",
+  "Profile updated successfully": "පැතිකඩ සාර්ථකව යාවත්කාලීන කළා",
+  "Email address is already in use": "මෙම ඊමේල් ලිපිනය දැනටමත් භාවිතයේ ඇත",
+  "Use your updated email address the next time you sign in.": "ඊළඟ වර පුරනය වීමේදී ඔබේ යාවත්කාලීන කළ ඊමේල් ලිපිනය භාවිත කරන්න.",
+  "Updated profile": "පැතිකඩ යාවත්කාලීන කළා"
 }

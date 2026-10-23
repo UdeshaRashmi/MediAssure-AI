@@ -120,6 +120,7 @@ export type VerifiedAlternative = {
 };
 
 export type SessionUser = {
+  phone?: string | null;
   id: number;
   approved: boolean;
   name: string;

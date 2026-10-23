@@ -79,14 +79,14 @@ export function InventoryPage({ items, user, onChanged }: { items: InventoryItem
     <Panel title="My medicine stock" action={<button className="action" disabled={locationLoading || locationFailed || busy} onClick={() => { setEditing(null); setMessage(""); setOpen(true); }}>{t("Add medicine")}</button>}>
       <p className="mb-4 text-sm">{t("Keep your available medicine stock up to date so people can find the correct pickup location.")}</p>
       {locationLoading && <LoadingState label="Loading data..." />}
-      {location && <p className="mb-3 font-bold">{t(location.location_type)}: {location.name}</p>}
+      {location && items.length > 0 && <p className="mb-3 font-bold">{t(location.location_type)}: {location.name}</p>}
       {items.length ? <InventoryTable items={items} actions={item => <>
         <button className="secondary" disabled={busy} onClick={() => { setEditing(item); setMessage(""); setOpen(true); }}>{t("Edit")}</button>
         <button className="secondary text-red-700" disabled={busy} onClick={() => { setDeleting(item); setMessage(""); }}>{t("Delete")}</button>
       </>} /> : <EmptyState title="No inventory records" detail="Add your first medicine and your institution details to start sharing availability." />}
     </Panel>
     {message && <p role="status">{t(message)}</p>}
-    {location && <Panel title="Medicine pickup location">
+    {location && items.length > 0 && <Panel title="Medicine pickup location">
       <p className="mb-3 text-sm">{t("Only open locations with sufficient stock appear in search results. Update your address and coordinates carefully.")}</p>
       <ValidatedForm key={JSON.stringify(location)} className="grid gap-3" onSubmit={saveLocation}>
         <LocationFields location={location} hospital={user.role === "Hospital Staff"} />

@@ -43,5 +43,5 @@ ROLE_VALUES = {value: key for key, value in ROLE_LABELS.items()}
 
 
 def user_data(user: User) -> dict:
-    return {"id": user.id, "name": user.name, "email": user.email,
+    return {"id": user.id, "name": user.name, "email": user.email, "phone": user.phone,
             "role": ROLE_LABELS[user.role], "approved": user.is_approved}

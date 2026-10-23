@@ -99,19 +99,26 @@ def update_stock(inventory_id: int, payload: StockUpdate, user: User = Depends(o
         if item.reserved_stock:
             raise HTTPException(409, "Complete or cancel active reservations before changing medicine details")
         # Shared medicine records must not change another supplier's stock or reservation history.
+        duplicate = db.scalar(select(Inventory.id).join(Medicine).where(
+            Inventory.pharmacy_id == item.pharmacy_id, Inventory.id != item.id,
+            func.lower(Medicine.name) == details["name"].lower(),
+            func.lower(Medicine.generic_name) == details["generic_name"].lower(),
+            func.coalesce(func.lower(Medicine.strength), "") == (details["strength"] or "").lower()))
+        if duplicate:
+            raise HTTPException(409, "Medicine already exists at your institution")
         medicine = db.scalar(select(Medicine).filter_by(**details).order_by(Medicine.id))
         if medicine is None:
             medicine = Medicine(**details)
             db.add(medicine)
             db.flush()
-        duplicate = db.scalar(select(Inventory.id).where(Inventory.pharmacy_id == item.pharmacy_id,
-                              Inventory.medicine_id == medicine.id, Inventory.id != item.id))
-        if duplicate:
-            raise HTTPException(409, "Medicine already exists at your institution")
         item.medicine = medicine
     item.current_stock, item.reorder_level = payload.stock, payload.reorder_level
     audit(db, user, "Updated stock", item.medicine.name)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Medicine already exists at your institution") from None
     return inventory_data(item)
 
 
