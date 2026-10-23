@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from app.core.access import ROLE_VALUES, current_user, user_data
+from app.core.access import ROLE_VALUES, bearer, current_user, user_data
 from app.core.security import DUMMY_HASH, hash_password, verify_password
 from app.db.session import get_db
 from app.models.session import AuthSession
@@ -95,6 +95,6 @@ def me(user: User = Depends(current_user)):
 
 
 @router.post("/logout", status_code=204)
-def logout(user: User = Depends(current_user), db: Session = Depends(get_db), credentials=Depends(__import__("app.core.access", fromlist=["bearer"]).bearer)):
+def logout(user: User = Depends(current_user), db: Session = Depends(get_db), credentials=Depends(bearer)):
     db.execute(delete(AuthSession).where(AuthSession.token_hash == sha256(credentials.credentials.encode()).hexdigest()))
     db.commit()

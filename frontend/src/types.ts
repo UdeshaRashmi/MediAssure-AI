@@ -14,6 +14,8 @@ export type StockStatus = "Healthy" | "Watch" | "Low";
 export type BadgeTone = "teal" | "danger" | "amber";
 
 export type InventoryItem = {
+  id: number;
+  pharmacyName: string;
   medicine: string;
   generic: string;
   category: string;
@@ -27,6 +29,7 @@ export type InventoryItem = {
 };
 
 export type PharmacyMatch = {
+  inventoryId: number;
   name: string;
   area: string;
   distance: string;
@@ -40,6 +43,7 @@ export type PharmacyMatch = {
 };
 
 export type Reservation = {
+  pharmacyName: string;
   id: string;
   patient: string;
   medicine: string;
@@ -93,6 +97,8 @@ export type VerifiedAlternative = {
 };
 
 export type SessionUser = {
+  id: number;
+  approved: boolean;
   name: string;
   email: string;
   role: "Patient" | "Pharmacist" | "Hospital Staff" | "Admin";

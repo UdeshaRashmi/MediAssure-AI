@@ -1,55 +1,30 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy import select, or_
+from sqlalchemy.orm import Session
+from app.core.access import approved_user
+from app.db.session import get_db
+from app.models.medicine import Medicine
 
-from app.schemas.demo import MedicineSearchResult
-from app.services.demo_data import INVENTORY
-
-router = APIRouter()
-
-
-@router.get("/search", response_model=list[MedicineSearchResult])
-def search_medicines(query: str) -> list[MedicineSearchResult]:
-    sample_medicines = [
-        MedicineSearchResult(
-            id=index + 1,
-            name=item.medicine,
-            generic_name=item.generic,
-            category=item.category,
-            strength=extract_strength(item.medicine),
-            requires_prescription=item.risk in {"High", "Medium"},
-            criticality_level=item.risk.lower(),
-        )
-        for index, item in enumerate(INVENTORY)
-    ]
-
-    normalized_query = query.lower().strip()
-    return [
-        medicine
-        for medicine in sample_medicines
-        if normalized_query in medicine.name.lower()
-        or normalized_query in medicine.generic_name.lower()
-        or normalized_query in medicine.category.lower()
-    ]
+router = APIRouter(dependencies=[Depends(approved_user)])
 
 
-@router.get("", response_model=list[MedicineSearchResult])
-def list_medicines() -> list[MedicineSearchResult]:
-    return [
-        MedicineSearchResult(
-            id=index + 1,
-            name=item.medicine,
-            generic_name=item.generic,
-            category=item.category,
-            strength=extract_strength(item.medicine),
-            requires_prescription=item.risk in {"High", "Medium"},
-            criticality_level=item.risk.lower(),
-        )
-        for index, item in enumerate(INVENTORY)
-    ]
+def medicine_data(row):
+    return {"id": row.id, "name": row.name, "generic_name": row.generic_name,
+            "category": row.category or "", "strength": row.strength or "",
+            "requires_prescription": row.requires_prescription, "criticality_level": row.criticality_level.value}
 
 
-def extract_strength(name: str) -> str:
-    if "500 mg" in name:
-        return "500 mg"
-    if "Inhaler" in name:
-        return "100 mcg"
-    return "standard"
+@router.get("/search")
+def search_medicines(query: str, db: Session = Depends(get_db)):
+    term = query.strip()
+    if not term:
+        return []
+    pattern = "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    rows = db.scalars(select(Medicine).where(or_(Medicine.name.ilike(pattern, escape="\\"),
+                      Medicine.generic_name.ilike(pattern, escape="\\"), Medicine.category.ilike(pattern, escape="\\"))).order_by(Medicine.id))
+    return [medicine_data(row) for row in rows]
+
+
+@router.get("")
+def list_medicines(db: Session = Depends(get_db)):
+    return [medicine_data(row) for row in db.scalars(select(Medicine).order_by(Medicine.id))]

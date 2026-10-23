@@ -27,7 +27,7 @@ class PharmacyRecommendation(BaseModel):
 
 class InventoryItem(BaseModel):
     pharmacy_name: str = ""
-    area: str = "Colombo"
+    area: str = ""
     contact_number: str = ""
     latitude: float = 6.9271
     longitude: float = 79.8612
@@ -49,15 +49,19 @@ class InventoryCreate(BaseModel):
     medicine: str = Field(min_length=1, max_length=160)
     generic: str = "Unknown"
     category: str = "General"
-    stock: int = Field(gt=0)
+    strength: str = Field(default="", max_length=80)
+    requires_prescription: bool = True
+    is_open: bool = False
+    opening_hours: str = Field(default="", max_length=255)
+    stock: int = Field(ge=0)
     reserved: int = Field(default=0, ge=0)
     reorder_level: int = Field(default=10, ge=0)
     predicted_24h: int = Field(default=0, ge=0)
     pharmacy_name: str = Field(min_length=1, max_length=160)
-    area: str = "Colombo"
-    contact_number: str = "+94 11 000 0000"
-    latitude: float = Field(default=6.9271, ge=-90, le=90)
-    longitude: float = Field(default=79.8612, ge=-180, le=180)
+    area: str = ""
+    contact_number: str = Field(min_length=1, max_length=32)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
 
     @model_validator(mode="after")
     def validate_reserved_stock(self) -> "InventoryCreate":

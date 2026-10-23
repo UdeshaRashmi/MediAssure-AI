@@ -1,38 +1,76 @@
-from fastapi import APIRouter, HTTPException
-
-from app.schemas.demo import ReservationCreate, ReservationItem
-from app.services.demo_data import INVENTORY, RESERVATIONS, STORE_LOCK
-
-from app.services.inventory import refresh_pharmacy
+from datetime import UTC, datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from app.core.access import approved_user, require_roles
+from app.db.session import get_db
+from app.models.inventory import Inventory
+from app.models.reservation import Reservation, ReservationStatus
+from app.models.user import User, UserRole
+from app.services.records import audit, expire_reservations, reservation_data, reservation_query
 
 router = APIRouter()
 
-
-@router.get("", response_model=list[ReservationItem])
-def list_reservations() -> list[ReservationItem]:
-    with STORE_LOCK:
-        return list(RESERVATIONS)
+class ReservationCreate(BaseModel):
+    inventory_id: int
+    quantity: int = Field(default=1, gt=0)
 
 
-@router.post("", response_model=ReservationItem, status_code=201)
-def create_reservation(payload: ReservationCreate) -> ReservationItem:
-    with STORE_LOCK:
-        stock = next((item for item in INVENTORY
-                      if item.medicine.casefold() == payload.medicine.casefold()
-                      and item.pharmacy_name.casefold() == payload.pharmacy_name.casefold()), None)
-        if stock is None:
-            raise HTTPException(status_code=404, detail="Medicine not found at this pharmacy")
-        if stock.stock - stock.reserved < payload.quantity:
-            raise HTTPException(status_code=409, detail="Insufficient available stock")
-        reservation = ReservationItem(
-            id=f"R-{1025 + len(RESERVATIONS)}", patient=payload.patient,
-            medicine=stock.medicine, quantity=payload.quantity,
-            eta="Awaiting pharmacy confirmation", status=f"Pending at {stock.pharmacy_name}",
-        )
-        stock.reserved += payload.quantity
-        available = stock.stock - stock.reserved
-        stock.status = "Low" if available <= stock.reorder_level else "Watch" if available <= stock.reorder_level * 2 else "Healthy"
-        stock.risk = {"Low": "High", "Watch": "Medium", "Healthy": "Low"}[stock.status]
-        refresh_pharmacy(stock.pharmacy_name)
-        RESERVATIONS.append(reservation)
-        return reservation
+@router.get("")
+def list_reservations(user: User = Depends(approved_user), db: Session = Depends(get_db)):
+    expire_reservations(db)
+    rows = [reservation_data(row) for row in db.scalars(reservation_query(user)).all()]
+    db.commit()
+    return rows
+
+
+@router.post("", status_code=201)
+def create_reservation(payload: ReservationCreate,
+                       user: User = Depends(require_roles(UserRole.USER, UserRole.HOSPITAL_STAFF)),
+                       db: Session = Depends(get_db)):
+    expire_reservations(db)
+    stock = db.scalar(select(Inventory).where(Inventory.id == payload.inventory_id).with_for_update())
+    if stock is None:
+        raise HTTPException(404, "Inventory not found")
+    if not stock.pharmacy.is_open:
+        raise HTTPException(409, "Pharmacy is closed")
+    if stock.current_stock - stock.reserved_stock < payload.quantity:
+        raise HTTPException(409, "Insufficient available stock")
+    row = Reservation(user_id=user.id, pharmacy_id=stock.pharmacy_id, medicine_id=stock.medicine_id,
+                      quantity=payload.quantity, status=ReservationStatus.PENDING,
+                      expires_at=datetime.now(UTC) + timedelta(minutes=15))
+    stock.reserved_stock += payload.quantity
+    db.add(row)
+    audit(db, user, "Created reservation", stock.medicine.name)
+    db.commit()
+    return reservation_data(row)
+
+
+class ReservationUpdate(BaseModel):
+    status: ReservationStatus
+
+
+@router.patch("/{reservation_id}")
+def update_reservation(reservation_id: int, payload: ReservationUpdate,
+                       user: User = Depends(approved_user), db: Session = Depends(get_db)):
+    expire_reservations(db)
+    row = db.scalar(reservation_query(user).where(Reservation.id == reservation_id).with_for_update(of=Reservation))
+    if row is None:
+        raise HTTPException(404, "Reservation not found")
+    transitions = {ReservationStatus.PENDING: {ReservationStatus.CONFIRMED, ReservationStatus.CANCELLED},
+                   ReservationStatus.CONFIRMED: {ReservationStatus.COMPLETED, ReservationStatus.CANCELLED}}
+    if payload.status not in transitions.get(row.status, set()):
+        raise HTTPException(409, "Invalid reservation status transition")
+    if user.role in (UserRole.USER, UserRole.HOSPITAL_STAFF) and payload.status != ReservationStatus.CANCELLED:
+        raise HTTPException(403, "Only pharmacy operators can confirm or complete reservations")
+    stock = db.scalar(select(Inventory).where(Inventory.pharmacy_id == row.pharmacy_id,
+                      Inventory.medicine_id == row.medicine_id).with_for_update())
+    if payload.status in (ReservationStatus.CANCELLED, ReservationStatus.COMPLETED):
+        stock.reserved_stock -= row.quantity
+        if payload.status == ReservationStatus.COMPLETED:
+            stock.current_stock -= row.quantity
+    row.status = payload.status
+    audit(db, user, "Updated reservation", str(row.id))
+    db.commit()
+    return reservation_data(row)

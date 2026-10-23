@@ -1,279 +1,115 @@
-import { useEffect, useMemo, useState } from "react";
-import { Sidebar, SearchBox, TopBar } from "./components/Layout";
+import { useEffect, useState } from "react";
+import { Sidebar, TopBar } from "./components/Layout";
 import { EmptyState, LoadingState } from "./components/ui";
-import { AlertsPage } from "./pages/AlertsPage";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardPage } from "./pages/DashboardPage";
-import { ForecastPage } from "./pages/ForecastPage";
 import { FinderPage } from "./pages/FinderPage";
 import { InventoryPage } from "./pages/InventoryPage";
-import { NetworkPage } from "./pages/NetworkPage";
-import { RebalancingPage } from "./pages/RebalancingPage";
 import { ReservationsPage } from "./pages/ReservationsPage";
 import { RequestPage } from "./pages/RequestPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { NetworkPage } from "./pages/NetworkPage";
 import { canAccessPage, defaultPageByRole } from "./roleAccess";
-import {
-  checkApiHealth,
-  fetchAuditEvents,
-  fetchAlerts,
-  fetchDashboardSummary,
-  fetchForecasts,
-  fetchInventory,
-  fetchNetworkPharmacies,
-  fetchPharmacyRecommendations,
-  fetchReservations,
-  fetchTransfers,
-  fetchVerifiedAlternatives,
-  type ApiStatus,
-  type DashboardSummary,
-} from "./services/api";
-import type {
-  DemandForecast,
-  AuditEvent,
-  InventoryItem,
-  NetworkPharmacy,
-  OperationalAlert,
-  Page,
-  PharmacyMatch,
-  Reservation,
-  SessionUser,
-  TransferSuggestion,
-  VerifiedAlternative,
-} from "./types";
-
-const sessionKey = "mediassure-session";
+import { LanguageSwitch, useI18n } from "./i18n";
+import * as api from "./services/api";
+import type { AuditEvent, InventoryItem, NetworkPharmacy, OperationalAlert, Page, PharmacyMatch, Reservation, SessionUser } from "./types";
 
 export function App() {
+  const { t } = useI18n();
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [activePage, setActivePage] = useState<Page>("request");
-  const [query, setQuery] = useState("");
-  const [reservedPharmacy, setReservedPharmacy] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
-  const [matches, setMatches] = useState<PharmacyMatch[]>([]);
-  const [matchesLoading, setMatchesLoading] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const refresh = () => setRevision(value => value + 1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [transfers, setTransfers] = useState<TransferSuggestion[]>([]);
-  const [forecasts, setForecasts] = useState<DemandForecast[]>([]);
-  const [networkPharmacies, setNetworkPharmacies] = useState<NetworkPharmacy[]>([]);
+  const [network, setNetwork] = useState<NetworkPharmacy[]>([]);
   const [alerts, setAlerts] = useState<OperationalAlert[]>([]);
-  const [verifiedAlternatives, setVerifiedAlternatives] = useState<VerifiedAlternative[]>([]);
-  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
-  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
-  const [appLoading, setAppLoading] = useState(false);
-  const [appError, setAppError] = useState<string | null>(null);
-  const [user, setUser] = useState<SessionUser | null>(() => {
-    const saved = window.localStorage.getItem(sessionKey);
-    try {
-      return saved ? (JSON.parse(saved) as SessionUser) : null;
-    } catch {
-      window.localStorage.removeItem(sessionKey);
-      return null;
-    }
-  });
+  const [audit, setAudit] = useState<AuditEvent[]>([]);
+  const [summary, setSummary] = useState<api.DashboardSummary | null>(null);
+  const [matches, setMatches] = useState<PharmacyMatch[]>([]);
+  const [matchesLoading, setMatchesLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [latitude, setLatitude] = useState(""); const [longitude, setLongitude] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [search, setSearch] = useState<{ query: string; latitude: number; longitude: number; quantity: number } | null>(null);
 
-  const filteredInventory = useMemo(() => {
-    const normalized = query.toLowerCase().trim();
-    if (!normalized) return inventory;
-    return inventory.filter(
-      (item) =>
-        item.medicine.toLowerCase().includes(normalized) ||
-        item.generic.toLowerCase().includes(normalized) ||
-        item.category.toLowerCase().includes(normalized),
-    );
-  }, [inventory, query]);
-
+  function signedIn(next: SessionUser) { setUser(next); setActivePage(defaultPageByRole[next.role]); setError(""); }
   useEffect(() => {
     let alive = true;
-
-    checkApiHealth().then((online) => {
-      if (alive) setApiStatus(online ? "online" : "offline");
-    });
-
-    return () => {
-      alive = false;
-    };
+    const expired = () => { localStorage.removeItem("mediassure-token"); localStorage.removeItem("mediassure-session"); setUser(null); };
+    window.addEventListener("mediassure-session-expired", expired);
+    if (localStorage.getItem("mediassure-token")) api.fetchCurrentUser().then(next => { if (alive) signedIn(next); }).catch(() => { if (alive) expired(); }).finally(() => { if (alive) setCheckingSession(false); });
+    else setCheckingSession(false);
+    return () => { alive = false; window.removeEventListener("mediassure-session-expired", expired); };
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-
-    let alive = true;
-    setAppLoading(true);
-    setAppError(null);
-
-    Promise.all([
-      fetchDashboardSummary(),
-      fetchInventory(),
-      fetchReservations(),
-      fetchTransfers(),
-      fetchForecasts(),
-      fetchNetworkPharmacies(),
-      fetchAlerts(),
-      fetchVerifiedAlternatives(),
-      fetchAuditEvents(),
-    ])
-      .then(([summary, nextInventory, nextReservations, nextTransfers, nextForecasts, nextNetwork, nextAlerts, nextAlternatives, nextAuditEvents]) => {
-        if (!alive) return;
-        setDashboardSummary(summary);
-        setInventory(nextInventory);
-        setReservations(nextReservations);
-        setTransfers(nextTransfers);
-        setForecasts(nextForecasts);
-        setNetworkPharmacies(nextNetwork);
-        setAlerts(nextAlerts);
-        setVerifiedAlternatives(nextAlternatives);
-        setAuditEvents(nextAuditEvents);
-        setApiStatus("online");
-      })
-      .catch(() => {
-        if (!alive) return;
-        setApiStatus("offline");
-        setAppError("Backend API is required. Start FastAPI on http://localhost:8001 and refresh the app.");
-      })
-      .finally(() => {
-        if (alive) setAppLoading(false);
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, [user]);
+    setMatches([]); setSearch(null); setInventory([]); setReservations([]); setNetwork([]); setAudit([]); setAlerts([]); setSummary(null);
+  }, [user?.id]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.approved) return;
+    let alive = true; setLoading(true); setError("");
+    const operator = user.role === "Pharmacist" || user.role === "Admin";
+    Promise.all([
+      operator ? api.fetchDashboardSummary() : Promise.resolve(null),
+      operator ? api.fetchInventory() : Promise.resolve([]),
+      api.fetchReservations(),
+      user.role !== "Patient" ? api.fetchNetworkPharmacies() : Promise.resolve([]),
+      user.role !== "Patient" ? api.fetchAlerts() : Promise.resolve([]), api.fetchAuditEvents(),
+    ]).then(([nextSummary, nextInventory, nextReservations, nextNetwork, nextAlerts, nextAudit]) => {
+      if (!alive) return;
+      setSummary(nextSummary); setInventory(nextInventory); setReservations(nextReservations); setNetwork(nextNetwork); setAlerts(nextAlerts); setAudit(nextAudit);
+    }).catch(error => { if (alive) setError(error instanceof Error ? error.message : "Request failed. Please try again."); }).finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [user, revision]);
 
-    if (apiStatus !== "online") {
-      setMatches([]);
-      setMatchesLoading(false);
-      return;
-    }
+  useEffect(() => {
+    if (!user?.approved || !search || !["Patient", "Hospital Staff"].includes(user.role)) return;
+    let alive = true; setMatchesLoading(true);
+    api.fetchPharmacyRecommendations(search.query, search.latitude, search.longitude, search.quantity).then(rows => { if (alive) setMatches(rows); }).catch(error => { if (alive) { setMatches([]); setError(error.message); } }).finally(() => { if (alive) setMatchesLoading(false); });
+    return () => { alive = false; };
+  }, [search, user, revision]);
 
-    let alive = true;
-    setMatchesLoading(true);
-
-    fetchPharmacyRecommendations(query)
-      .then((nextMatches) => {
-        if (alive) setMatches(nextMatches);
-      })
-      .catch(() => {
-        if (alive) {
-          setApiStatus("offline");
-          setMatches([]);
-          setAppError("Backend API is required for pharmacy recommendations.");
-        }
-      })
-      .finally(() => {
-        if (alive) setMatchesLoading(false);
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, [apiStatus, query, user]);
-
-  const handleNavigate = (page: Page) => {
-    if (user && !canAccessPage(user.role, page)) {
-      return;
-    }
-
-    setActivePage(page);
-    setMenuOpen(false);
-  };
-
-  const handleLogin = (nextUser: SessionUser) => {
-    window.localStorage.setItem(sessionKey, JSON.stringify(nextUser));
-    setUser(nextUser);
-    setActivePage(defaultPageByRole[nextUser.role]);
-  };
-
-  const handleLogout = () => {
-    window.localStorage.removeItem(sessionKey);
-    window.localStorage.removeItem("mediassure-token");
-    window.localStorage.removeItem("mediassure-token-expires-at");
-    setUser(null);
-    setActivePage("request");
-  };
-
-  if (!user) {
-    return <AuthPage onLogin={handleLogin} />;
-  }
-
-  const visiblePage = canAccessPage(user.role, activePage) ? activePage : defaultPageByRole[user.role];
-
-  return (
-    <main className="min-h-screen bg-[#F2F7F7] text-[#092C46]">
-      <TopBar
-        apiStatus={apiStatus}
-        menuOpen={menuOpen}
-        user={user}
-        onLogout={handleLogout}
-        onMenuToggle={() => setMenuOpen((open) => !open)}
-      />
-      <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 lg:grid-cols-[260px_1fr]">
-        <Sidebar activePage={visiblePage} apiStatus={apiStatus} menuOpen={menuOpen} user={user} onNavigate={handleNavigate} />
-
-        <section className="min-w-0">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold uppercase text-[#0D8F93]">{roleEyebrow(user.role)}</p>
-              <h1 className="text-2xl font-bold">{pageTitle(visiblePage)}</h1>
-            </div>
-            <SearchBox value={query} onChange={setQuery} />
-          </div>
-
-          {appLoading && <LoadingState label="Loading backend data" />}
-          {appError && <EmptyState title="Backend connection required" detail={appError} />}
-          {!appLoading && !appError && visiblePage === "finder" && (
-            <FinderPage
-              matches={matches}
-              matchesLoading={matchesLoading}
-              matchSource="api"
-              query={query}
-              reservedPharmacy={reservedPharmacy}
-              onReserve={setReservedPharmacy}
-            />
-          )}
-          {!appLoading && !appError && visiblePage === "request" && (
-            <RequestPage matches={matches} verifiedAlternatives={verifiedAlternatives} onNavigate={handleNavigate} />
-          )}
-          {!appLoading && !appError && visiblePage === "dashboard" && (
-            <DashboardPage items={filteredInventory} matches={matches} summary={dashboardSummary} />
-          )}
-          {!appLoading && !appError && visiblePage === "inventory" && <InventoryPage items={filteredInventory} />}
-          {!appLoading && !appError && visiblePage === "forecast" && <ForecastPage forecasts={forecasts} />}
-          {!appLoading && !appError && visiblePage === "reservations" && <ReservationsPage reservations={reservations} />}
-          {!appLoading && !appError && visiblePage === "rebalancing" && <RebalancingPage transfers={transfers} />}
-          {!appLoading && !appError && visiblePage === "network" && <NetworkPage networkPharmacies={networkPharmacies} />}
-          {!appLoading && !appError && visiblePage === "alerts" && <AlertsPage alerts={alerts} />}
-          {!appLoading && !appError && visiblePage === "settings" && <SettingsPage auditEvents={auditEvents} user={user} />}
-        </section>
-      </div>
-    </main>
-  );
-}
-
-function pageTitle(page: Page) {
-  return {
-    finder: "Medicine Finder",
-    request: "Emergency Request",
-    dashboard: "Pharmacist Dashboard",
-    inventory: "Inventory Management",
-    forecast: "Demand Forecasting",
-    reservations: "Emergency Reservations",
-    rebalancing: "Stock Rebalancing",
-    network: "Pharmacy Network",
-    alerts: "Alerts and Sync Status",
-    settings: "Settings and Governance",
-  }[page];
-}
-
-function roleEyebrow(role: SessionUser["role"]) {
-  return {
-    Patient: "Emergency user workspace",
-    Pharmacist: "Pharmacy operations",
-    "Hospital Staff": "Hospital coordination",
-    Admin: "System administration",
-  }[role];
+  async function signOut() { try { await api.logoutWithApi(); } finally { setUser(null); setError(""); } }
+  if (checkingSession) return <LoadingState label="Checking session..." />;
+  if (!user) return <AuthPage onLogin={signedIn} />;
+  if (!user.approved) return <main className="mx-auto grid max-w-xl gap-4 p-6"><LanguageSwitch /><h1 className="text-2xl font-bold">{t("Account awaiting approval")}</h1><p>{t("Your staff account has been created. An administrator must approve it before you can access this workspace.")}</p><p>{user.name} ? {t(user.role)}</p><button className="action" onClick={async () => { try { signedIn(await api.fetchCurrentUser()); } catch (error) { setError((error as Error).message); } }}>{t("Check approval")}</button><button className="secondary" onClick={signOut}>{t("Sign out")}</button>{error && <p role="alert">{t(error)}</p>}</main>;
+  const page = canAccessPage(user.role, activePage) ? activePage : defaultPageByRole[user.role];
+  const titles: Record<Page, string> = { request: "Emergency Request", finder: "Medicine Finder", dashboard: user.role === "Admin" ? "Administration Dashboard" : "Pharmacist Dashboard", inventory: "Inventory Management", forecast: "Demand Forecasting", reservations: "Reservations", rebalancing: "Stock Rebalancing", network: "Pharmacy Network", alerts: "Alerts", settings: "Account and Settings" };
+  const finderProps = { matches, loading: matchesLoading, quantity: search?.quantity ?? quantity, onChanged: refresh };
+  return <main className="min-h-screen bg-[#F2F7F7] text-[#092C46]">
+    <TopBar apiStatus={error ? "offline" : "online"} user={user} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen(v => !v)} onLogout={signOut} />
+    <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 lg:grid-cols-[260px_1fr]">
+      <Sidebar activePage={page} apiStatus={error ? "offline" : "online"} menuOpen={menuOpen} user={user} onNavigate={next => { if (canAccessPage(user.role, next)) setActivePage(next); setMenuOpen(false); }} />
+      <section className="min-w-0"><div className="mb-5 flex items-center justify-between gap-3"><h1 className="text-2xl font-bold">{t(titles[page])}</h1><button className="secondary" disabled={loading} onClick={refresh}>{t("Refresh")}</button></div>
+        {error && <p className="mb-4 rounded border border-red-300 bg-white p-4" role="alert">{t(error)}</p>}
+        {loading && <LoadingState label="Loading data..." />}
+        {!loading && <>
+          {["finder", "request"].includes(page) && <form className="mb-5 grid gap-3 rounded border bg-white p-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); setError(""); setSearch({ query, latitude: Number(latitude), longitude: Number(longitude), quantity }); }}>
+            <label>{t("Medicine needed")}<input className="field" value={query} onChange={e => setQuery(e.target.value)} required /></label>
+            <label>{t("Quantity")}<input className="field" type="number" min={1} value={quantity} onChange={e => setQuantity(Number(e.target.value))} required /></label>
+            <label>{t("Latitude")}<input className="field" type="number" step="any" min={-90} max={90} value={latitude} onChange={e => setLatitude(e.target.value)} required /></label>
+            <label>{t("Longitude")}<input className="field" type="number" step="any" min={-180} max={180} value={longitude} onChange={e => setLongitude(e.target.value)} required /></label>
+            <button type="button" className="secondary" onClick={() => { if (!navigator.geolocation) { setError("Location access is unavailable. Enter coordinates manually."); return; } navigator.geolocation.getCurrentPosition(position => { setLatitude(String(position.coords.latitude)); setLongitude(String(position.coords.longitude)); }, () => setError("Location access is unavailable. Enter coordinates manually.")); }}>{t("Use my location")}</button>
+            <button className="action" disabled={matchesLoading}>{t("Search pharmacies")}</button>
+          </form>}
+          {page === "request" && <RequestPage {...finderProps} />}
+          {page === "finder" && <FinderPage {...finderProps} />}
+          {page === "dashboard" && <DashboardPage items={inventory} matches={[]} summary={summary} />}
+          {page === "inventory" && <InventoryPage items={inventory} onChanged={refresh} />}
+          {page === "reservations" && <ReservationsPage reservations={reservations} user={user} onChanged={refresh} />}
+          {page === "network" && <NetworkPage networkPharmacies={network} />}
+          {page === "alerts" && <div className="grid gap-3">{alerts.length ? alerts.map((alert, index) => <article className="rounded border bg-white p-4" key={index}><h2 className="font-bold">{alert.title}</h2><p>{alert.detail}</p></article>) : <EmptyState title="No alerts" detail="No low-stock alerts from your current inventory." />}</div>}
+          {page === "forecast" && <EmptyState title="No forecasts available" detail="Demand forecasting requires recorded sales history and a validated prediction model. No sample predictions are shown." />}
+          {page === "rebalancing" && <EmptyState title="No transfer suggestions" detail="Stock transfers are not enabled yet. No sample suggestions are shown." />}
+          {page === "settings" && <SettingsPage auditEvents={audit} user={user} />}
+        </>}
+      </section>
+    </div>
+  </main>;
 }
