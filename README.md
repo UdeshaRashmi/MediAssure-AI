@@ -6,7 +6,7 @@
   <p>A medicine availability and inventory platform for patients, pharmacies, and hospitals in Sri Lanka.</p>
   <p>
     <a href="#project-overview">Overview</a> &bull;
-    <a href="#local-setup">Get started</a> &bull;
+    <a href="#first-time-setup-for-beginners">Get started</a> &bull;
     <a href="#using-the-application">User guide</a> &bull;
     <a href="#sri-lanka-medicine-map">Sri Lanka map</a> &bull;
     <a href="#testing-and-verification">Testing</a>
@@ -25,10 +25,13 @@ The project also provides a foundation for future demand forecasting and stock r
 
 ## Contents
 
+- [First-time setup for beginners](#first-time-setup-for-beginners)
 - [Implemented features](#implemented-features)
 - [Roles and access](#roles-and-access)
 - [Technology and architecture](#technology-and-architecture)
 - [Local setup](#local-setup)
+- [Docker Desktop walkthrough](#docker-desktop-walkthrough)
+- [Browse database tables](#browse-database-tables)
 - [Configuration](#configuration)
 - [Using the application](#using-the-application)
 - [Sri Lanka medicine map](#sri-lanka-medicine-map)
@@ -40,6 +43,192 @@ The project also provides a foundation for future demand forecasting and stock r
 - [Project structure](#project-structure)
 - [Current limitations and future work](#current-limitations-and-future-work)
 - [Additional documentation](#additional-documentation)
+
+## First-time setup for beginners
+
+Start here if you have not used Python, Node.js, Docker, or a terminal before. Follow the steps in order. The detailed sections later in this README explain each part further.
+
+### Step 1: Install the required applications
+
+Install these Windows applications using their official installation instructions:
+
+| Application | Official website | Why it is needed |
+| --- | --- | --- |
+| Visual Studio Code | <https://code.visualstudio.com/> | Open the project and run commands in its terminals |
+| Python 3.11 or newer | <https://www.python.org/downloads/> | Run the FastAPI backend |
+| Node.js 20 or newer, including npm | <https://nodejs.org/en/download> | Run the React frontend |
+| Docker Desktop for Windows | <https://docs.docker.com/desktop/setup/install/windows-install/> | Run PostgreSQL and the database table browser |
+
+Complete any Windows prerequisites requested by the Docker installer and restart Windows if asked. After installation, close and reopen Visual Studio Code so newly installed commands are available.
+
+You do not need to install PostgreSQL or Redis separately on Windows for this setup.
+
+### Step 2: Open the project folder
+
+1. Obtain the project files. If downloaded as a ZIP, extract the ZIP before continuing.
+2. Open Visual Studio Code.
+3. Choose **File > Open Folder** and select the extracted `MediAssure-AI` folder.
+4. Check the Explorer panel on the left. You should see `backend`, `frontend`, `README.md`, and `docker-compose.yml` directly inside the opened folder.
+
+If another `MediAssure-AI` folder is nested inside the folder you opened, open that inner folder instead. Commands must run against the folder containing `docker-compose.yml`.
+
+### Step 3: Understand the terminals
+
+A terminal is the panel where you type commands. In Visual Studio Code, choose **Terminal > New Terminal** to open one. Use a **PowerShell** terminal for this guide.
+
+- Copy only the commands inside a code block, not a prompt such as `PS C:\...>` or the output shown after a command.
+- Paste a command and press **Enter**. Wait for it to finish before continuing.
+- Installation commands eventually return to a prompt. Backend and frontend server commands keep running; leave those terminals open.
+- To open a terminal in a specific folder, right-click `backend` or `frontend` in the Explorer panel and choose **Open in Integrated Terminal**.
+
+The normal working setup is:
+
+| Terminal | Folder | Used for |
+| --- | --- | --- |
+| Database setup | Project root | Docker commands; this terminal can be reused after commands finish |
+| Backend | `backend` | Running the API; leave it open |
+| Admin setup | `backend` | Creating your administrator account once |
+| Frontend | `frontend` | Running the website; leave it open |
+
+### Step 4: Start Docker and the database
+
+Open **Docker Desktop** from the Windows Start menu and wait for its engine to start. Keep it running.
+
+Open a PowerShell terminal in the project root. Check the location and installed commands:
+
+```powershell
+Get-Location
+python --version
+node --version
+npm.cmd --version
+docker info
+```
+
+`Get-Location` should show the project root. The version commands should print versions; `docker info` should include server information. If a command is not recognized, finish its installation and reopen the terminal before continuing.
+
+Start the database and supporting services:
+
+```powershell
+docker compose up -d db redis adminer
+docker compose ps
+```
+
+The first run downloads software images and may take several minutes. Wait for the command to finish. In Docker Desktop, expand the `mediassure-ai` group and check the containers are running. The `db` service should become healthy.
+
+If the command reports that the Docker engine cannot be reached, do not continue with database migrations yet. Open Docker Desktop, let it finish starting, and retry this step.
+
+### Step 5: Prepare and run the backend
+
+In the Explorer panel, right-click **backend > Open in Integrated Terminal**. The prompt should end in `\backend>`.
+
+Run these first-time setup commands:
+
+```powershell
+if (!(Test-Path .venv)) { python -m venv .venv }
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m alembic upgrade head
+```
+
+Wait until package installation and migration both finish successfully. Then start the API:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8001
+```
+
+When the terminal reports that application startup is complete, open <http://localhost:8001/docs>. Seeing the API documentation confirms that the server is responding.
+
+Leave this terminal running. Do not type frontend or account-setup commands into it while the server is active.
+
+If setup produces an error, use [Troubleshooting](#troubleshooting) before moving on. If a `backend/.env` file already existed, check that its database URL uses port `5433`, as shown in [Configuration](#configuration).
+
+### Step 6: Create your first Admin account
+
+Right-click **backend > Open in Integrated Terminal** again to create a separate terminal. Run:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.create_admin
+```
+
+The command asks for:
+
+```text
+Name:
+Email:
+Password:
+Confirm password:
+```
+
+Enter your own details and press Enter after each one. Password characters are deliberately hidden, so the terminal may look unchanged while you type. Enter the same password twice, using at least six non-padding characters.
+
+A successful setup prints `Administrator created. Sign in using the Admin role.` Keep the email/password for the next steps. No default Admin account is supplied, and Admin cannot be created through the website's public Sign up form.
+
+### Step 7: Start the frontend
+
+Right-click **frontend > Open in Integrated Terminal**. The prompt should end in `\frontend>`.
+
+Install its packages:
+
+```powershell
+npm.cmd install
+```
+
+When installation finishes, start the website:
+
+```powershell
+npm.cmd run dev
+```
+
+Open the **Local** URL printed by Vite, normally <http://localhost:5173>. If it prints port `5174` instead, open that URL. Leave this terminal running too.
+
+### Step 8: Sign in and add your real data
+
+The application starts without sample stock, so empty screens are expected initially.
+
+1. On the website choose **Sign in**, select **Admin**, and enter the credentials created in Step 6.
+2. To create a supplier account, sign out, choose **Sign up**, and register as **Pharmacist** or **Hospital Staff**.
+3. Sign back in as Admin, open **Settings**, and approve that staff account.
+4. Sign in with the approved staff account and open **My medicine stock > Add medicine**.
+5. Enter a medicine and the institution's details. Use **Use my location** while physically at the institution, then check the map before saving its coordinates.
+6. Mark the institution **Open** when it is available for pickup. Save the stock.
+7. Sign up as a **Patient** to search for the medicine and request a reservation. A separate browser profile can be used to keep a supplier account open at the same time.
+8. In the supplier account, inspect **Reservations**, confirm the request, and complete pickup when appropriate.
+9. Open **Sri Lanka map** to inspect the locations recorded in the system.
+
+For the complete workflow and stock rules, see [Using the application](#using-the-application) and [Inventory and reservation rules](#inventory-and-reservation-rules).
+
+### Step 9: View the saved database rows
+
+Open <http://localhost:8080> and use the [Adminer connection details](#browse-database-tables). Choose a table's **select** link to view its rows. This login uses the database credentials, not your website's Admin email/password.
+
+### Step 10: Stop safely and run again later
+
+When finished:
+
+1. Press **Ctrl+C** in the frontend terminal.
+2. Press **Ctrl+C** in the backend terminal.
+3. From a project-root terminal, run `docker compose stop db redis adminer` if you want to stop the supporting services.
+
+For the next session, open Docker Desktop and run:
+
+```powershell
+# Project-root terminal:
+docker compose up -d db redis adminer
+```
+
+Then open a terminal in each indicated folder:
+
+```powershell
+# Backend folder:
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8001
+```
+
+```powershell
+# Frontend folder:
+npm.cmd run dev
+```
+
+Open the frontend URL and sign in with an existing account. You do not need to recreate the Admin account, reinstall packages, or re-enter saved stock every time. Apply new migrations or reinstall dependencies when the project changes. Your saved records remain in the database volume unless that storage is deleted.
 
 ## Implemented features
 
@@ -188,6 +377,7 @@ Open the URL printed by Vite, normally `http://localhost:5173`. If the port is o
 | Web application | <http://localhost:5173> |
 | Backend API | <http://localhost:8001> |
 | Interactive API documentation | <http://localhost:8001/docs> |
+| Database table browser (Adminer) | <http://localhost:8080> |
 | API liveness check | <http://localhost:8001/health> |
 | Database connectivity check | <http://localhost:8001/health/ready> |
 
@@ -225,6 +415,133 @@ docker compose exec backend python -m app.create_admin
 ```
 
 Use either the containerized backend/frontend or the local terminal processes at a time, since they share the same exposed ports. The frontend container runs the Vite development server; this Compose setup is not a production deployment configuration.
+
+## Docker Desktop walkthrough
+
+Docker Desktop runs the project's database and optional supporting services. When you start React and FastAPI from PowerShell, those two processes run outside Docker and will not appear in its container list.
+
+### 1. Open Docker Desktop
+
+1. Open **Docker Desktop** from the Windows Start menu.
+2. Wait for the engine to finish starting.
+3. Open **Containers** in the left sidebar.
+
+### 2. Create the project containers
+
+For the first run, open a PowerShell terminal in the repository root:
+
+```powershell
+docker compose up -d db redis adminer
+docker compose ps
+```
+
+The first run downloads the required images. Subsequent runs reuse downloaded images and existing database storage. Wait for the services to start before opening Adminer or starting backend migrations.
+
+### 3. Find your services
+
+Return to **Containers** and expand the `mediassure-ai` project using its arrow. The project name can differ if the repository folder has another name.
+
+| Service | Typical container name | Purpose | Access |
+| --- | --- | --- | --- |
+| `db` | `mediassure-ai-db-1` | PostgreSQL/PostGIS database | `localhost:5433` from Windows |
+| `redis` | `mediassure-ai-redis-1` | Supporting service reserved for future use | `localhost:6379` |
+| `adminer` | `mediassure-ai-adminer-1` | Browser interface for database tables | <http://localhost:8080> |
+
+Confirm that the required containers are running. The database should also report healthy in `docker compose ps` once ready.
+
+### 4. Open the database table browser
+
+Open <http://localhost:8080> in your browser. Docker Desktop also provides an action to open a container's exposed port.
+
+Use these Adminer values: **PostgreSQL**, server `db`, username `mediassure`, password `mediassure`, database `mediassure`. Then follow [Browse database tables](#browse-database-tables) to inspect records.
+
+Clicking the database container does not display database rows. Its **Files** tab shows container files; Adminer provides the table view.
+
+### 5. Inspect a problem
+
+Select a container and open **Logs** to inspect its output. **Inspect** shows details such as port mappings, and **Stats** shows resource usage. For terminal diagnostics:
+
+```powershell
+docker compose ps
+docker compose logs --tail 50 db
+docker compose logs --tail 50 adminer
+```
+
+Use `db` logs for database startup problems and `adminer` logs for table-browser startup problems. Backend and frontend errors appear in their PowerShell terminals when those services run locally.
+
+### 6. Stop and start again
+
+Use the container's **Stop**, **Start**, or **Restart** action. The project row also provides actions for the group. For local-backend development, start only `db`, `redis`, and `adminer` if containerized frontend/backend services also exist.
+
+The equivalent project commands are:
+
+```powershell
+# Stop the development support services.
+docker compose stop db redis adminer
+
+# Start them again.
+docker compose up -d db redis adminer
+```
+
+Starting Adminer requires the database; stopping only Adminer does not remove database data. Stopping the database prevents the backend from reading or saving records until it is started again.
+
+### Where the data is kept
+
+The `db` service stores records in the Compose volume normally named `mediassure-ai_postgres_data`. The volume survives normal stops and restarts. Do not delete this volume or use `docker compose down -v` when you want to retain your accounts, medicines, and reservations.
+
+Docker Desktop's **Volumes** view manages stored volumes; it is not a database table editor. Use Adminer to browse rows, and maintain backups separately from the live volume.
+
+For interface details, see the official [Docker Desktop Containers guide](https://docs.docker.com/desktop/use-desktop/container/).
+
+## Browse database tables
+
+Use **Adminer** to view database rows and columns directly in a browser. A separate desktop database application is not required.
+
+From the repository root, with Docker Desktop running:
+
+```powershell
+docker compose up -d db adminer
+```
+
+Open <http://localhost:8080> and enter:
+
+| Login field | Value |
+| --- | --- |
+| System | PostgreSQL |
+| Server | `db` |
+| Username | `mediassure` |
+| Password | `mediassure` |
+| Database | `mediassure` |
+
+### View saved records
+
+1. Click **Login** using the connection details above.
+2. If asked to choose a schema, select **public**.
+3. Find the table you want and click **select** next to its name. Clicking the table name itself may open its structure instead of its records.
+4. Browse the rows and columns. Use the table filters, sorting, and pagination controls when there are many records.
+5. After adding or updating data through the application, refresh the table view to see the saved changes.
+
+| Table | Records you can inspect |
+| --- | --- |
+| `users` | Registered accounts, roles, and approval status |
+| `pharmacies` | Pharmacy and hospital names, pickup addresses, contact details, and coordinates |
+| `medicines` | Medicine names, generic names, strengths, and categories |
+| `inventory` | Total stock, reserved stock, reorder levels, and institution/medicine references |
+| `reservations` | Reservation quantities, status, expiry, and account/institution/medicine references |
+| `audit_records` | Recorded inventory, institution, approval, and reservation actions |
+| `auth_sessions` | Session token hashes, account references, and expiry times |
+
+Hospital locations are stored in `pharmacies` too. Columns such as `pharmacy_id`, `medicine_id`, and `user_id` link a record to the corresponding table's `id`. An empty result means there are no saved records matching the current table filters.
+
+These are the database development credentials, not an application's Admin email/password. Use `db` as the server because Adminer connects from inside the Docker network; the Windows host port `5433` is not needed here. If the table list is empty, apply the backend migrations first.
+
+Adminer is bound to this computer's loopback interface at port 8080. It connects directly to the database and provides edit/delete operations in addition to viewing. Use the application forms for normal stock and reservation changes so its validation and ownership rules are applied.
+
+To stop the table browser without stopping the database:
+
+```powershell
+docker compose stop adminer
+```
 
 ## Configuration
 
