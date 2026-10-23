@@ -236,6 +236,7 @@ test("rebalancing confirms transfers and alerts show honest email status", async
   await navigate(page, "Alerts");
   await expect(page.getByText("Available stock: 0", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Email my alerts", exact: true }).click();
+  await expect(page.getByText("Low-stock email notifications queued. Repeated requests do not send duplicates today.", { exact: true })).toBeVisible();
   await expect(page.getByText("MediAssure: low stock - Panadol", { exact: true })).toBeVisible();
   await expect(page.getByText("Delivery status: Queued", { exact: true })).toBeVisible();
   await expect(page.getByText("Email delivery is not configured. Messages remain queued until an administrator enables email delivery.", { exact: true })).toBeVisible();

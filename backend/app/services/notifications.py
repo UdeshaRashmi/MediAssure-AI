@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from app.core.config import get_settings
 from app.models.email_message import EmailMessage
 from app.models.inventory import Inventory
+from app.models.reservation import Reservation
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -51,10 +52,16 @@ def queue_low_stock(db, user=None):
                 f"Reorder level: {item.reorder_level}\nPlease review your stock and rebalancing suggestions.")
 
 
-def current_low_stock(db, row):
-    # Do not deliver an old low-stock email after replenishment/deletion.
+def current_notification(db, row):
+    # Do not send superseded reservation states or a backlog of daily stock alerts.
+    if row.event_key.startswith("reservation:"):
+        _, reservation_id, status, _ = row.event_key.split(":")
+        reservation = db.get(Reservation, int(reservation_id))
+        return reservation is not None and reservation.status.value == status
     if not row.event_key.startswith("low-stock:"):
         return True
+    if row.event_key.split(":")[2] != datetime.now(UTC).date().isoformat():
+        return False
     inventory_id = int(row.event_key.split(":")[1])
     item = db.get(Inventory, inventory_id)
     if item is None or item.current_stock - item.reserved_stock > item.reorder_level:
@@ -80,7 +87,7 @@ def deliver_pending(db, settings=None, limit=25, *, user_id=None):
         if row is None:
             break
         recipient = db.get(User, row.user_id)
-        if recipient is None or not current_low_stock(db, row):
+        if recipient is None or not current_notification(db, row):
             row.status = "skipped"
             db.commit()
             continue

@@ -37,6 +37,7 @@ The project also provides a foundation for future demand forecasting and stock r
 - [Sri Lanka medicine map](#sri-lanka-medicine-map)
 - [Location detection and language support](#location-detection-and-language-support)
 - [Inventory and reservation rules](#inventory-and-reservation-rules)
+- [Rebalancing, alerts, and email notifications](#rebalancing-alerts-and-email-notifications)
 - [API reference](#api-reference)
 - [Testing and verification](#testing-and-verification)
 - [Troubleshooting](#troubleshooting)
@@ -253,8 +254,8 @@ Each account has a role stored by the backend. Choosing another role on the logi
 | --- | --- | --- |
 | **Patient** | Public signup with immediate access | Medicine search, emergency request, own reservations, Sri Lanka map, and settings |
 | **Pharmacist** | Public signup followed by Admin approval | Pharmacy dashboard, own institution stock and pickup details, incoming reservations, map, alerts, and settings |
-| **Hospital Staff** | Public signup followed by Admin approval | Own hospital stock and pickup details, medicine search, outgoing/incoming reservations, map, alerts, and settings |
-| **Admin** | Explicit creation using the local setup command | Global stock/reservation oversight, staff approvals, dashboard, map, alerts, and audit history |
+| **Hospital Staff** | Public signup followed by Admin approval | Own hospital stock and pickup details, medicine search, outgoing/incoming reservations, rebalancing, map, alerts, and settings |
+| **Admin** | Explicit creation using the local setup command | Global stock/reservation oversight, staff approvals, dashboard, rebalancing, map, alerts, and audit history |
 
 **Ownership is checked on the server.** Pharmacists and Hospital Staff can list and update only the stock belonging to their account's institution. Changing a stock ID, request body, or browser navigation does not grant access to another institution's inventory.
 
@@ -698,7 +699,7 @@ Passwords are stored as salted PBKDF2-SHA256 hashes. Sessions last eight hours, 
 
 Suggestions do not move medicines or change stock by themselves. Arrange the handover with the other institution. After the actual handover, the **donor owner** or **Admin** selects **Record completed transfer**, checks the details, and confirms. The backend locks both stock rows, rechecks availability, updates both totals atomically, records history/audit entries, and queues emails for both owners. Reserved units are protected. Repeating the same request UUID does not deduct stock twice. Other suppliers cannot change those records; receiving suppliers can view their incoming suggestions and history. No sample suggestions are generated.
 
-**Alerts** shows current low/out-of-stock entries for your institution (Admin sees all). It refreshes every 30 seconds while open. Replenished and deleted stock no longer appears. **Email my alerts** queues only the signed-in user's own stock alerts. Repeated requests and worker scans are deduplicated to one email per inventory entry per UTC calendar date. A queued low-stock email is skipped if the item has been deleted or replenished before delivery. The available/reserved quantities are refreshed before sending.
+**Alerts** shows current low/out-of-stock entries for your institution (Admin sees all). It refreshes every 30 seconds while open. Replenished and deleted stock no longer appears. **Email my alerts** queues only the signed-in user's own stock alerts. Repeated requests and worker scans are deduplicated to one email per inventory entry per UTC calendar date. A queued low-stock email is skipped if it is from a previous UTC date, or the item has been deleted or replenished before delivery. Superseded reservation-status emails are skipped too, so old queued messages do not present an outdated hold status as current. The available/reserved quantities are refreshed before sending.
 
 Emails are also queued when an account is created, a staff account is approved, a reservation is created/confirmed/cancelled/completed/expired, or a completed transfer is recorded. Reservation notifications go to the requester and supplying owner; transfer notifications go to both institution owners. Emails use the recipient's current saved account email. Existing accounts and old events are not backfilled with sample messages.
 

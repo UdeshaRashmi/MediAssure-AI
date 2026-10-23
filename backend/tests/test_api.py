@@ -436,8 +436,8 @@ class ApiTests(unittest.TestCase):
         self.request("PATCH", f"/inventory/{self.stock['id']}", {"stock": 0, "reorder_level": 1})
         alerts = self.request("GET", "/operations/alerts")[1]
         self.assertEqual(next(row for row in alerts if row["inventory_id"] == self.stock["id"])["available"], 0)
-        self.request("POST", "/operations/alerts/email")
-        self.request("POST", "/operations/alerts/email")
+        self.assertEqual(self.request("POST", "/operations/alerts/email")[1]["queued"], 1)
+        self.assertEqual(self.request("POST", "/operations/alerts/email")[1]["queued"], 0)
         rows = self.db.scalars(select(EmailMessage).where(EmailMessage.event_key.like(f"low-stock:{self.stock['id']}:%"))).all()
         self.assertEqual(len(rows), 1)
         queue_low_stock(self.db)
@@ -488,6 +488,23 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.request("POST", retry_path)[0], 404)
         self.assertEqual(self.request("POST", retry_path, token=other["access_token"])[0], 200)
         self.assertEqual(self.request("POST", retry_path, token=other["access_token"])[0], 409)
+
+    def test_notification_skips_superseded_reservation_and_old_stock_alert(self):
+        from app.models.email_message import EmailMessage
+        from app.services.notifications import queue_email, current_notification
+        self.setup_stock()
+        _, reservation = self.reserve()
+        pending = self.db.scalar(select(EmailMessage).where(EmailMessage.event_key == f"reservation:{reservation['id']}:pending:{self.db.get(Reservation, int(reservation['id'])).user_id}"))
+        self.assertIsNotNone(pending)
+        self.assertTrue(current_notification(self.db, pending))
+        self.request("PATCH", f"/reservations/{reservation['id']}", {"status": "cancelled"})
+        self.assertFalse(current_notification(self.db, pending))
+        yesterday = (datetime.now(UTC) - timedelta(days=1)).date().isoformat()
+        owner_id = self.db.get(Inventory, self.stock["id"]).pharmacy.owner_user_id
+        key = f"low-stock:{self.stock['id']}:{yesterday}"
+        queue_email(self.db, owner_id, key, "Old low stock", "Old alert")
+        old = self.db.scalar(select(EmailMessage).where(EmailMessage.event_key == key))
+        self.assertFalse(current_notification(self.db, old))
 
     def test_readiness_hides_database_errors(self):
         with patch("app.routers.health.engine") as mocked:
