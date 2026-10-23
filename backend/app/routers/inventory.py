@@ -10,6 +10,7 @@ from app.models.medicine import Medicine
 from app.models.pharmacy import Pharmacy
 from app.models.user import User, UserRole
 from app.schemas.inventory import InventoryCreate
+from app.schemas.validation import MAX_STOCK
 from app.services.records import audit, expire_reservations, inventory_data, inventory_query
 
 router = APIRouter()
@@ -68,8 +69,8 @@ def create_inventory_item(payload: InventoryCreate, user: User = Depends(operato
 
 
 class StockUpdate(BaseModel):
-    stock: int = Field(ge=0)
-    reorder_level: int = Field(ge=0)
+    stock: int = Field(ge=0, le=MAX_STOCK, strict=True)
+    reorder_level: int = Field(ge=0, le=MAX_STOCK, strict=True)
 
 
 @router.patch("/{inventory_id}")

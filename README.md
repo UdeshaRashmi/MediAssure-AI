@@ -105,6 +105,12 @@ The full Docker development stack can also be started with `docker compose up --
 
 Sign out before changing accounts. The database volume is persistent; restarting containers does not erase your records.
 
+## Form validation
+
+Forms show errors beside the relevant field in English or Sinhala and focus the first invalid field on submit. Required text cannot contain only spaces. Email format, matching passwords (at least six non-padding characters), field lengths, and optional phone format are checked. Phone numbers accept an optional leading `+`, spaces, parentheses, and hyphens, with 7 to 15 digits.
+
+Stock and reorder levels must be nonnegative whole numbers within PostgreSQL integer limits. Reservation quantity must be a positive whole number. Latitude is limited to -90..90 and longitude to -180..180; both zero and decimal coordinates are valid. The backend independently validates these rules and also rejects stock changes below already-reserved units. Passwords retain their exact characters; names and email addresses are normalized separately.
+
 ## Verification
 
 Run from `backend` after migrations, with PostgreSQL running:
@@ -119,6 +125,7 @@ The API integration suite uses the configured PostgreSQL database with an outer 
 From `frontend`:
 
 ```powershell
+npm.cmd test
 npm.cmd run build
 ```
 

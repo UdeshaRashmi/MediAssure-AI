@@ -10,6 +10,7 @@ from app.core.security import DUMMY_HASH, hash_password, verify_password
 from app.db.session import get_db
 from app.models.session import AuthSession
 from app.models.user import User, UserRole
+from app.schemas.validation import validate_phone
 from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter()
@@ -21,12 +22,14 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=6, max_length=1024)
     role: str = "Pharmacist"
 
-    @field_validator("email")
+    @field_validator("email", mode="before")
     @classmethod
     def normalize_email(cls, value: str) -> str:
+        if not isinstance(value, str):
+            return value
         value = value.strip().lower()
         local, separator, domain = value.partition("@")
-        if not separator or not local or "." not in domain or domain.startswith(".") or domain.endswith(".") or "@" in domain or any(char.isspace() for char in value):
+        if not separator or not local or "." not in domain or domain.startswith(".") or domain.endswith(".") or "@" in domain or ".." in domain or any(char.isspace() for char in value):
             raise ValueError("A valid email address is required")
         return value
 
@@ -46,6 +49,13 @@ class SignupRequest(LoginRequest):
     @classmethod
     def strip_name(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def valid_phone(cls, value):
+        if value is None or isinstance(value, str) and not value.strip():
+            return None
+        return validate_phone(value) if isinstance(value, str) else value
 
     @field_validator("password")
     @classmethod

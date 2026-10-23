@@ -163,5 +163,19 @@
   "Reserved stock is managed through reservations": "වෙන්කළ තොගය වෙන්කිරීම් හරහා කළමනාකරණය කෙරේ",
   "Add inventory to register your pharmacy first": "ඖෂධසැල ලියාපදිංචි කිරීමට පළමුව තොග එක් කරන්න",
   "Database unavailable or migrations required": "දත්ත සේවාව ලබාගත නොහැක. පරිපාලක අමතන්න",
-  "Pharmacy setup changed; retry the request": "ඖෂධසැල් තොරතුරු වෙනස් වී ඇත. නැවත උත්සාහ කරන්න"
+  "Pharmacy setup changed; retry the request": "ඖෂධසැල් තොරතුරු වෙනස් වී ඇත. නැවත උත්සාහ කරන්න",
+  "This field is required.": "මෙම තොරතුර ඇතුළත් කරන්න.",
+  "Use at least 6 characters in your password.": "මුරපදයට අවම වශයෙන් අක්ෂර 6ක් භාවිත කරන්න.",
+  "Enter at least 2 characters.": "අවම වශයෙන් අක්ෂර 2ක් ඇතුළත් කරන්න.",
+  "This value is too long.": "ඇතුළත් කළ තොරතුර දිග වැඩියි.",
+  "Enter a valid email address.": "වලංගු ඊමේල් ලිපිනයක් ඇතුළත් කරන්න.",
+  "Enter a valid phone number with 7 to 15 digits.": "ඉලක්කම් 7 සිට 15 දක්වා ඇති වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න.",
+  "Enter a valid number.": "වලංගු අංකයක් ඇතුළත් කරන්න.",
+  "Enter a whole number.": "පූර්ණ සංඛ්‍යාවක් ඇතුළත් කරන්න.",
+  "Latitude must be between -90 and 90.": "අක්ෂාංශය -90 සහ 90 අතර විය යුතුයි.",
+  "Longitude must be between -180 and 180.": "දේශාංශය -180 සහ 180 අතර විය යුතුයි.",
+  "Quantity must be at least 1.": "ප්‍රමාණය අවම වශයෙන් 1ක් විය යුතුයි.",
+  "The value is below the allowed minimum.": "ඇතුළත් කළ අගය අවම සීමාවට වඩා අඩුයි.",
+  "The value exceeds the allowed maximum.": "ඇතුළත් කළ අගය උපරිම සීමාව ඉක්මවයි.",
+  "Enter a medicine name.": "ඖෂධයේ නම ඇතුළත් කරන්න."
 }

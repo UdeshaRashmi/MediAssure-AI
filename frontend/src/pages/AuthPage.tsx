@@ -1,3 +1,4 @@
+import { ValidatedForm, ValidatedInput } from "../components/ValidatedForm";
 import { useState, type FormEvent } from "react";
 import logo from "../logo1-transparent-tight.png";
 import { loginWithApi, signupWithApi } from "../services/api";
@@ -21,16 +22,16 @@ export function AuthPage({ onLogin }: { onLogin: (user: SessionUser) => void }) 
   }
   const details: Record<SessionUser["role"], string> = { Patient: "Find medicines and manage your reservations", Pharmacist: "Manage your pharmacy inventory and patient pickups", "Hospital Staff": "Find medicines and coordinate hospital reservations", Admin: "Review staff accounts and oversee the pharmacy network" };
   return <main className="min-h-screen bg-[#F2F7F7] px-4 py-6 text-[#092C46]"><div className="mx-auto flex max-w-6xl justify-end"><LanguageSwitch /></div><div className="mx-auto grid max-w-6xl items-center gap-8 py-8 lg:grid-cols-2"><section><img src={logo} alt="MediAssure" className="h-32 w-32 object-contain" /><h1 className="mt-4 text-4xl font-bold">{t("Medicine availability, connected to your community")}</h1><p className="mt-4">{t("Use your own pharmacy stock and reservations. No sample records or automatic prescriptions.")}</p></section>
-    <form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-6 shadow-sm">
+    <ValidatedForm key={mode} onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-6 shadow-sm">
       <h2 className="text-2xl font-bold">{t(mode === "signin" ? "Sign in" : "Create account")}</h2>
       <div className="grid grid-cols-2 gap-2"><button className={mode === "signin" ? "action" : "secondary"} type="button" onClick={() => { setMode("signin"); setError(""); }}>{t("Sign in")}</button><button className={mode === "signup" ? "action" : "secondary"} type="button" onClick={() => { setMode("signup"); if (role === "Admin") setRole("Patient"); setError(""); }}>{t("Sign up")}</button></div>
       <label>{t("Role")}<select className="field" value={role} onChange={e => setRole(e.target.value as SessionUser["role"])}>{roles.filter(r => mode === "signin" || r !== "Admin").map(r => <option key={r} value={r}>{t(r)}</option>)}</select></label><p className="text-sm">{t(details[role])}</p>
-      {mode === "signup" && <><label>{t("Full name")}<input className="field" value={name} onChange={e => setName(e.target.value)} minLength={2} maxLength={120} autoComplete="name" required /></label><label>{t("Phone")}<input className="field" value={phone} onChange={e => setPhone(e.target.value)} maxLength={32} type="tel" autoComplete="tel" /></label></>}
-      <label>{t("Email")}<input className="field" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" maxLength={255} required /></label>
-      <label>{t("Password")}<input className="field" type={show ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} minLength={6} maxLength={1024} required /></label>
-      {mode === "signup" && <label>{t("Confirm password")}<input className="field" type={show ? "text" : "password"} value={confirm} onChange={e => setConfirm(e.target.value)} autoComplete="new-password" minLength={6} maxLength={1024} required /></label>}
-      <label className="flex items-center gap-2"><input type="checkbox" checked={show} onChange={e => setShow(e.target.checked)} />{t("Show password")}</label>
+      {mode === "signup" && <><label>{t("Full name")}<ValidatedInput className="field" name="name" value={name} onChange={e => setName(e.target.value)} minLength={2} maxLength={120} autoComplete="name" required /></label><label>{t("Phone")}<ValidatedInput className="field" name="phone" value={phone} onChange={e => setPhone(e.target.value)} maxLength={32} type="tel" autoComplete="tel" /></label></>}
+      <label>{t("Email")}<ValidatedInput className="field" name="email" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" maxLength={255} required /></label>
+      <label>{t("Password")}<ValidatedInput className="field" name="password" data-password="true" type={show ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} minLength={6} maxLength={1024} required /></label>
+      {mode === "signup" && <label>{t("Confirm password")}<ValidatedInput className="field" name="confirm_password" data-password="true" type={show ? "text" : "password"} value={confirm} onChange={e => setConfirm(e.target.value)} autoComplete="new-password" minLength={6} maxLength={1024} required /></label>}
+      <label className="flex items-center gap-2"><ValidatedInput type="checkbox" checked={show} onChange={e => setShow(e.target.checked)} />{t("Show password")}</label>
       {mode === "signup" && role !== "Patient" && <p>{t("Staff accounts require administrator approval before access is granted.")}</p>}
       {error && <p className="text-red-700" role="alert">{t(error)}</p>}<button className="action" disabled={busy}>{t(busy ? "Please wait..." : mode === "signin" ? "Sign in" : "Create account")}</button>
-    </form></div></main>;
+    </ValidatedForm></div></main>;
 }

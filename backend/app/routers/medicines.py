@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 from app.core.access import approved_user
@@ -15,10 +15,10 @@ def medicine_data(row):
 
 
 @router.get("/search")
-def search_medicines(query: str, db: Session = Depends(get_db)):
+def search_medicines(query: str = Query(min_length=1, max_length=160), db: Session = Depends(get_db)):
     term = query.strip()
     if not term:
-        return []
+        raise HTTPException(422, "Enter a medicine name.")
     pattern = "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
     rows = db.scalars(select(Medicine).where(or_(Medicine.name.ilike(pattern, escape="\\"),
                       Medicine.generic_name.ilike(pattern, escape="\\"), Medicine.category.ilike(pattern, escape="\\"))).order_by(Medicine.id))

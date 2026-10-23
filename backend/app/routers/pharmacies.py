@@ -1,21 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from app.core.access import approved_user, require_roles
 from app.db.session import get_db
 from app.models.inventory import Inventory
 from app.models.medicine import Medicine
 from app.models.pharmacy import Pharmacy
 from app.models.user import User, UserRole
+from app.schemas.validation import MAX_STOCK
 from app.services.records import distance_km, expire_reservations
 
 router = APIRouter(dependencies=[Depends(approved_user)])
 
 
 @router.get("/recommendations")
-def recommend_pharmacies(medicine_id: int = Query(gt=0), latitude: float = Query(ge=-90, le=90),
-                         longitude: float = Query(ge=-180, le=180), quantity: int = Query(default=1, gt=0),
+def recommend_pharmacies(medicine_id: int = Query(gt=0, le=MAX_STOCK), latitude: float = Query(ge=-90, le=90, allow_inf_nan=False),
+                         longitude: float = Query(ge=-180, le=180, allow_inf_nan=False), quantity: int = Query(default=1, gt=0, le=MAX_STOCK),
                          db: Session = Depends(get_db)):
     expire_reservations(db)
     if db.get(Medicine, medicine_id) is None:
@@ -54,6 +55,7 @@ def list_pharmacies(db: Session = Depends(get_db)):
 
 
 class PharmacyUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     is_open: bool
     opening_hours: str = Field(default="", max_length=255)
 

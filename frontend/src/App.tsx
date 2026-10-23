@@ -1,3 +1,4 @@
+import { ValidatedForm, ValidatedInput } from "./components/ValidatedForm";
 import { useEffect, useState } from "react";
 import { Sidebar, TopBar } from "./components/Layout";
 import { EmptyState, LoadingState } from "./components/ui";
@@ -34,7 +35,7 @@ export function App() {
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [latitude, setLatitude] = useState(""); const [longitude, setLongitude] = useState("");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState("1");
   const [search, setSearch] = useState<{ query: string; latitude: number; longitude: number; quantity: number } | null>(null);
 
   function signedIn(next: SessionUser) { setUser(next); setActivePage(defaultPageByRole[next.role]); setError(""); }
@@ -81,7 +82,7 @@ export function App() {
   if (!user.approved) return <main className="mx-auto grid max-w-xl gap-4 p-6"><LanguageSwitch /><h1 className="text-2xl font-bold">{t("Account awaiting approval")}</h1><p>{t("Your staff account has been created. An administrator must approve it before you can access this workspace.")}</p><p>{user.name} ? {t(user.role)}</p><button className="action" onClick={async () => { try { signedIn(await api.fetchCurrentUser()); } catch (error) { setError((error as Error).message); } }}>{t("Check approval")}</button><button className="secondary" onClick={signOut}>{t("Sign out")}</button>{error && <p role="alert">{t(error)}</p>}</main>;
   const page = canAccessPage(user.role, activePage) ? activePage : defaultPageByRole[user.role];
   const titles: Record<Page, string> = { request: "Emergency Request", finder: "Medicine Finder", dashboard: user.role === "Admin" ? "Administration Dashboard" : "Pharmacist Dashboard", inventory: "Inventory Management", forecast: "Demand Forecasting", reservations: "Reservations", rebalancing: "Stock Rebalancing", network: "Pharmacy Network", alerts: "Alerts", settings: "Account and Settings" };
-  const finderProps = { matches, loading: matchesLoading, quantity: search?.quantity ?? quantity, onChanged: refresh };
+  const finderProps = { matches, loading: matchesLoading, quantity: search?.quantity ?? Number(quantity), onChanged: refresh };
   return <main className="min-h-screen bg-[#F2F7F7] text-[#092C46]">
     <TopBar apiStatus={error ? "offline" : "online"} user={user} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen(v => !v)} onLogout={signOut} />
     <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 lg:grid-cols-[260px_1fr]">
@@ -90,14 +91,14 @@ export function App() {
         {error && <p className="mb-4 rounded border border-red-300 bg-white p-4" role="alert">{t(error)}</p>}
         {loading && <LoadingState label="Loading data..." />}
         {!loading && <>
-          {["finder", "request"].includes(page) && <form className="mb-5 grid gap-3 rounded border bg-white p-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); setError(""); setSearch({ query, latitude: Number(latitude), longitude: Number(longitude), quantity }); }}>
-            <label>{t("Medicine needed")}<input className="field" value={query} onChange={e => setQuery(e.target.value)} required /></label>
-            <label>{t("Quantity")}<input className="field" type="number" min={1} value={quantity} onChange={e => setQuantity(Number(e.target.value))} required /></label>
-            <label>{t("Latitude")}<input className="field" type="number" step="any" min={-90} max={90} value={latitude} onChange={e => setLatitude(e.target.value)} required /></label>
-            <label>{t("Longitude")}<input className="field" type="number" step="any" min={-180} max={180} value={longitude} onChange={e => setLongitude(e.target.value)} required /></label>
+          {["finder", "request"].includes(page) && <ValidatedForm className="mb-5 grid gap-3 rounded border bg-white p-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); setError(""); setSearch({ query, latitude: Number(latitude), longitude: Number(longitude), quantity: Number(quantity) }); }}>
+            <label>{t("Medicine needed")}<ValidatedInput className="field" name="query" maxLength={160} value={query} onChange={e => setQuery(e.target.value)} required /></label>
+            <label>{t("Quantity")}<ValidatedInput className="field" name="quantity" type="number" min={1} max={2147483647} value={quantity} onChange={e => setQuantity(e.target.value)} required /></label>
+            <label>{t("Latitude")}<ValidatedInput className="field" name="latitude" type="number" step="any" min={-90} max={90} value={latitude} onChange={e => setLatitude(e.target.value)} required /></label>
+            <label>{t("Longitude")}<ValidatedInput className="field" name="longitude" type="number" step="any" min={-180} max={180} value={longitude} onChange={e => setLongitude(e.target.value)} required /></label>
             <button type="button" className="secondary" onClick={() => { if (!navigator.geolocation) { setError("Location access is unavailable. Enter coordinates manually."); return; } navigator.geolocation.getCurrentPosition(position => { setLatitude(String(position.coords.latitude)); setLongitude(String(position.coords.longitude)); }, () => setError("Location access is unavailable. Enter coordinates manually.")); }}>{t("Use my location")}</button>
             <button className="action" disabled={matchesLoading}>{t("Search pharmacies")}</button>
-          </form>}
+          </ValidatedForm>}
           {page === "request" && <RequestPage {...finderProps} />}
           {page === "finder" && <FinderPage {...finderProps} />}
           {page === "dashboard" && <DashboardPage items={inventory} matches={[]} summary={summary} />}

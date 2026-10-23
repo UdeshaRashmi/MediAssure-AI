@@ -8,13 +8,14 @@ from app.db.session import get_db
 from app.models.inventory import Inventory
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
+from app.schemas.validation import MAX_STOCK
 from app.services.records import audit, expire_reservations, reservation_data, reservation_query
 
 router = APIRouter()
 
 class ReservationCreate(BaseModel):
-    inventory_id: int
-    quantity: int = Field(default=1, gt=0)
+    inventory_id: int = Field(gt=0, le=MAX_STOCK, strict=True)
+    quantity: int = Field(default=1, gt=0, le=MAX_STOCK, strict=True)
 
 
 @router.get("")
