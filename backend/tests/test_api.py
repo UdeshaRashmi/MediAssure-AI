@@ -293,6 +293,21 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.request("PATCH", "/pharmacies/mine", {"is_open": True, "latitude": 91})[0], 422)
         self.assertEqual(self.request("GET", "/pharmacies/mine", token=self.patient)[0], 403)
 
+    def test_map_stock_shows_available_units_without_private_records(self):
+        self.setup_stock()
+        self.reserve(2)
+        status, rows = self.request("GET", f"/pharmacies/{self.stock['pharmacy_id']}/stock")
+        self.assertEqual(status, 200)
+        self.assertEqual(rows[0]["available"], 1)
+        self.assertEqual(set(rows[0]), {"id", "medicine", "generic", "strength", "available", "updated_at"})
+        self.reserve(1)
+        self.assertEqual(self.request("GET", f"/pharmacies/{self.stock['pharmacy_id']}/stock")[1], [])
+
+    def test_map_stock_requires_authentication_and_existing_location(self):
+        self.assertEqual(self.request("GET", "/pharmacies/1/stock")[0], 401)
+        _, patient = self.signup(); self.token = patient["access_token"]
+        self.assertEqual(self.request("GET", "/pharmacies/2147483647/stock")[0], 404)
+
     def test_readiness_hides_database_errors(self):
         with patch("app.routers.health.engine") as mocked:
             mocked.connect.side_effect = OperationalError("connect", {}, Exception("private"))

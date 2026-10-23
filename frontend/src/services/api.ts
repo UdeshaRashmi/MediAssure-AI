@@ -63,8 +63,8 @@ export async function fetchPharmacyRecommendations(query: string, latitude: numb
   return results.flat().sort((a, b) => b.rescueScore - a.rescueScore);
 }
 export async function fetchNetworkPharmacies(): Promise<NetworkPharmacy[]> {
-  const rows = await request<{ name: string; location_type: "Pharmacy" | "Hospital"; area: string; status: NetworkPharmacy["status"]; open_until: string; stock_health: number; urgent_gaps: number; last_sync: string; latitude: number; longitude: number }[]>("/pharmacies");
-  return rows.map(i => ({ ...i, locationType: i.location_type, openUntil: i.open_until, stockHealth: i.stock_health, urgentGaps: i.urgent_gaps, lastSync: i.last_sync }));
+  const rows = await request<{ id: number; contact_number: string; name: string; location_type: "Pharmacy" | "Hospital"; area: string; status: NetworkPharmacy["status"]; open_until: string; stock_health: number; urgent_gaps: number; last_sync: string; latitude: number | null; longitude: number | null }[]>("/pharmacies");
+  return rows.map(i => ({ ...i, phone: i.contact_number, locationType: i.location_type, openUntil: i.open_until, stockHealth: i.stock_health, urgentGaps: i.urgent_gaps, lastSync: i.last_sync }));
 }
 export function fetchAlerts() { return request<OperationalAlert[]>("/operations/alerts"); }
 export function fetchAuditEvents() { return request<AuditEvent[]>("/operations/audit-events"); }
@@ -73,3 +73,7 @@ export function fetchTransfers() { return request<TransferSuggestion[]>("/operat
 export function fetchVerifiedAlternatives() { return request<VerifiedAlternative[]>("/operations/verified-alternatives"); }
 export function fetchUsers() { return request<SessionUser[]>("/admin/users"); }
 export function approveUser(id: number) { return request(`/admin/users/${id}/approve`, "POST"); }
+
+
+export type LocationStock = { id: number; medicine: string; generic: string; strength: string; available: number; updated_at: string };
+export function fetchLocationStock(id: number) { return request<LocationStock[]>(`/pharmacies/${id}/stock`); }

@@ -107,6 +107,14 @@ The full Docker development stack can also be started with `docker compose up --
 
 Sign out before changing accounts. The database volume is persistent; restarting containers does not erase your records.
 
+## Sri Lanka medicine map
+
+Open **Sri Lanka map** in the sidebar after signing in with any approved role, including Patient. The custom vector map uses the saved coordinates of actual pharmacy/hospital records. Click a pin or its list entry to view its address, contact number, opening status, and available medicines after reservations are subtracted. Staff stock updates are reflected when the map is refreshed or the location is selected again.
+
+Filter by institution name/address, Pharmacy/Hospital, and open status. Zoom controls focus on the selected location; Reset shows the country again. Closed locations remain visible unless the Open only filter is selected. Records without coordinates or outside the Sri Lanka map extent remain in the list and are not assigned invented map positions. The map does not include every pharmacy or hospital in Sri Lanka: only locations entered in this system are shown. Current account access and stock ownership rules still apply; this is not a public unauthenticated directory.
+
+Country outline: [Natural Earth 1:50m Admin 0 countries](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_50m_admin_0_countries.geojson), a public-domain dataset. The Sri Lanka geometry is bundled in `frontend/src/data/sri-lanka.json`, so displaying the country outline does not require an external tile service or API key. The schematic map is for discovering medicine locations; use the linked OpenStreetMap view for local streets.
+
 ## Detect location automatically
 
 Every coordinate-entry form has a **Use my location** button: patient/hospital medicine search and emergency requests, first-time pharmacy/hospital inventory registration, and institution pickup-location editing. Click it and allow the browser permission prompt. Coordinates are filled automatically, with an estimated accuracy and a map link for checking the result. Save or search explicitly after reviewing the location.
@@ -146,7 +154,7 @@ npm.cmd run build
 | `GET /admin/users`, `POST /admin/users/{id}/approve` | Approved Admin |
 | `GET/POST /inventory`, `PATCH /inventory/{id}` | Approved Pharmacist/Hospital Staff; own stock only. Admin retains global management |
 | `GET /medicines`, `GET /medicines/search` | Approved accounts |
-| `GET /pharmacies`, `GET /pharmacies/recommendations` | Approved accounts |
+| `GET /pharmacies`, `GET /pharmacies/recommendations`, `GET /pharmacies/{id}/stock` | Approved accounts; available-stock view excludes account/private reservation details |
 | `GET/PATCH /pharmacies/mine` | Approved Pharmacist/Hospital Staff/Admin; own institution profile only |
 | `GET /reservations` | Approved account; scoped by account/pharmacy/role |
 | `POST /reservations` | Approved Patient/Hospital Staff; inventory ID and quantity |

@@ -61,7 +61,7 @@ export function App() {
       operator ? api.fetchDashboardSummary() : Promise.resolve(null),
       (operator || user.role === "Hospital Staff") ? api.fetchInventory() : Promise.resolve([]),
       api.fetchReservations(),
-      user.role !== "Patient" ? api.fetchNetworkPharmacies() : Promise.resolve([]),
+      api.fetchNetworkPharmacies(),
       user.role !== "Patient" ? api.fetchAlerts() : Promise.resolve([]), api.fetchAuditEvents(),
     ]).then(([nextSummary, nextInventory, nextReservations, nextNetwork, nextAlerts, nextAudit]) => {
       if (!alive) return;
@@ -82,7 +82,7 @@ export function App() {
   if (!user) return <AuthPage onLogin={signedIn} />;
   if (!user.approved) return <main className="mx-auto grid max-w-xl gap-4 p-6"><LanguageSwitch /><h1 className="text-2xl font-bold">{t("Account awaiting approval")}</h1><p>{t("Your staff account has been created. An administrator must approve it before you can access this workspace.")}</p><p>{user.name} ? {t(user.role)}</p><button className="action" onClick={async () => { try { signedIn(await api.fetchCurrentUser()); } catch (error) { setError((error as Error).message); } }}>{t("Check approval")}</button><button className="secondary" onClick={signOut}>{t("Sign out")}</button>{error && <p role="alert">{t(error)}</p>}</main>;
   const page = canAccessPage(user.role, activePage) ? activePage : defaultPageByRole[user.role];
-  const titles: Record<Page, string> = { request: "Emergency Request", finder: "Medicine Finder", dashboard: user.role === "Admin" ? "Administration Dashboard" : "Pharmacist Dashboard", inventory: user.role === "Hospital Staff" ? "Hospital medicine stock" : "Inventory Management", forecast: "Demand Forecasting", reservations: "Reservations", rebalancing: "Stock Rebalancing", network: "Medicine locations", alerts: "Alerts", settings: "Account and Settings" };
+  const titles: Record<Page, string> = { request: "Emergency Request", finder: "Medicine Finder", dashboard: user.role === "Admin" ? "Administration Dashboard" : "Pharmacist Dashboard", inventory: user.role === "Hospital Staff" ? "Hospital medicine stock" : "Inventory Management", forecast: "Demand Forecasting", reservations: "Reservations", rebalancing: "Stock Rebalancing", network: "Sri Lanka map", alerts: "Alerts", settings: "Account and Settings" };
   const finderProps = { matches, loading: matchesLoading, quantity: search?.quantity ?? Number(quantity), onChanged: refresh };
   return <main className="min-h-screen bg-[#F2F7F7] text-[#092C46]">
     <TopBar apiStatus={error ? "offline" : "online"} user={user} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen(v => !v)} onLogout={signOut} />

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from geoalchemy2 import WKTElement
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.core.access import approved_user, require_roles
 from app.db.session import get_db
@@ -52,7 +52,8 @@ def list_pharmacies(db: Session = Depends(get_db)):
                      "status": "Online" if pharmacy.is_open else "Offline", "open_until": pharmacy.opening_hours or "Not provided",
                      "stock_health": health, "urgent_gaps": sum(max(0, i.reorder_level - (i.current_stock-i.reserved_stock)) for i in items),
                      "last_sync": max((i.last_updated_at.isoformat() for i in items), default=pharmacy.created_at.isoformat()),
-                     "latitude": pharmacy.latitude, "longitude": pharmacy.longitude, "location_type": location_type(pharmacy)})
+                     "latitude": pharmacy.latitude, "longitude": pharmacy.longitude, "location_type": location_type(pharmacy),
+                     "contact_number": pharmacy.contact_number or ""})
     db.commit()
     return rows
 
@@ -94,3 +95,19 @@ def update_pharmacy(payload: PharmacyUpdate, user: User = Depends(operator), db:
     audit(db, user, "Updated medicine location", location.name)
     db.commit()
     return location_data(location)
+
+
+@router.get("/{location_id}/stock")
+def available_stock(location_id: int, db: Session = Depends(get_db)):
+    location = db.get(Pharmacy, location_id)
+    if location is None:
+        raise HTTPException(404, "Medicine location not found")
+    expire_reservations(db)
+    rows = db.scalars(select(Inventory).options(selectinload(Inventory.medicine)).where(
+        Inventory.pharmacy_id == location_id,
+        Inventory.current_stock > Inventory.reserved_stock).order_by(Inventory.id)).all()
+    result = [{"id": row.id, "medicine": row.medicine.name, "generic": row.medicine.generic_name,
+               "strength": row.medicine.strength or "", "available": row.current_stock - row.reserved_stock,
+               "updated_at": row.last_updated_at.isoformat()} for row in rows]
+    db.commit()
+    return result

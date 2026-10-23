@@ -41,3 +41,5 @@ input:focus-visible {
 }
 
 .field[aria-invalid="true"] { border-color: #b91c1c; outline-color: #b91c1c; }
+
+.map-pin:focus-visible > path { stroke: #092c46; stroke-width: 4; }

@@ -94,6 +94,8 @@ export type DemandForecast = {
 };
 
 export type NetworkPharmacy = {
+  id: number;
+  phone: string;
   locationType: "Pharmacy" | "Hospital";
   name: string;
   area: string;
@@ -102,8 +104,8 @@ export type NetworkPharmacy = {
   stockHealth: number;
   urgentGaps: number;
   lastSync: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export type VerifiedAlternative = {
